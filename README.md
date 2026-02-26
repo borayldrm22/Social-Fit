@@ -107,3 +107,29 @@ Users earn star points for:
 ---
 
 ## 📂 Project Structure
+
+- **backend/** — Node.js + Express + Prisma API
+- **mobile/** — React Native (Expo) iOS/Android app
+
+## Backend
+
+```bash
+cd backend
+cp .env.example .env   # Set DATABASE_URL and JWT_SECRET
+npm install
+mkdir -p uploads
+npx prisma db push
+node prisma/seed.js
+npm run dev
+```
+
+API: `http://localhost:4000`
+
+## Mobile
+
+```bash
+cd mobile
+npm install
+# Update API_BASE in src/config.js to your backend URL (emulator: localhost, device: computer IP)
+npx expo start
+```
