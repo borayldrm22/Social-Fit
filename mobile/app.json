@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Social Fit",
+    "slug": "social-fit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#2d6a4f"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.socialfit.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#2d6a4f"
+      },
+      "package": "com.socialfit.app"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

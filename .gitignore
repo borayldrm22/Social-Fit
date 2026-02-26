@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Backend
+backend/uploads/*
+backend/dev.db
+backend/dev.db-journal
+
+# Mobile / Expo
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/.expo/
+mobile/android/app/build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Logs and OS
+*.log
+.DS_Store
+*.pem

@@ -1,0 +1,212 @@
+// Social Fit - Prisma Schema
+// User, Post, Group, Message, Streak, Badge, Booking, Subscription
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  profile    Profile?
+  posts      Post[]
+  likes      Like[]
+  comments   Comment[]
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages  Message[] @relation("ReceivedMessages")
+  friendshipsInit  Friendship[] @relation("FriendshipInit")
+  friendshipsRecv  Friendship[] @relation("FriendshipRecv")
+  groupMembers GroupMember[]
+  streaks     Streak[]
+  userBadges  UserBadge[]
+  bookings    Booking[]
+  subscription Subscription?
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String   @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  weightKg    Float?   @map("weight_kg")
+  heightCm    Float?   @map("height_cm")
+  dailyCalorieGoal Int? @map("daily_calorie_goal")
+  goalNote    String?  @map("goal_note")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId   String?  @map("group_id")
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  type      String   // "meal" | "workout"
+  imageUrl  String?  @map("image_url")
+  caption   String?
+  tags      String   // JSON array string (SQLite)
+  metadata  String?  // JSON string (SQLite)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  likes    Like[]
+  comments Comment[]
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String   @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, postId])
+  @@map("likes")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String   @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("comments")
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  imageUrl    String?  @map("image_url")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members GroupMember[]
+  posts   Post[]
+}
+
+model GroupMember {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId   String   @map("group_id")
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  role      String   @default("member") // member | admin
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  @@unique([userId, groupId])
+  @@map("group_members")
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String   @map("sender_id")
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String  @map("receiver_id")
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  body       String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("messages")
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation("FriendshipInit", fields: [userId], references: [id], onDelete: Cascade)
+  friendId  String   @map("friend_id")
+  friend    User     @relation("FriendshipRecv", fields: [friendId], references: [id], onDelete: Cascade)
+  status    String   @default("pending") // pending | accepted
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, friendId])
+  @@map("friendships")
+}
+
+model Streak {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime // gün bazlı (sadece tarih)
+  count     Int      @default(1) // ardışık gün sayısı
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, date])
+  @@map("streaks")
+}
+
+model Badge {
+  id          String   @id @default(uuid())
+  key         String   @unique // "streak_7" | "streak_14" | "streak_30"
+  name        String
+  description String?
+  iconUrl     String?  @map("icon_url")
+  daysRequired Int     @map("days_required")
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String   @map("badge_id")
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  earnedAt  DateTime @default(now()) @map("earned_at")
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Coach {
+  id          String   @id @default(uuid())
+  displayName String   @map("display_name")
+  bio         String?
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  bookings Booking[]
+}
+
+model Booking {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coachId   String   @map("coach_id")
+  coach     Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  slotAt    DateTime @map("slot_at")
+  status    String   @default("pending") // pending | confirmed | completed | cancelled
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("bookings")
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      String   @default("premium") // free | premium
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("subscriptions")
+}
