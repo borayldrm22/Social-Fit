@@ -1,49 +1,109 @@
-# Social Fit
+# 🌟 Social Fit  
+### A Social Nutrition & Healthy Lifestyle Mobile App
 
-Sağlıklı yaşam sosyal medya uygulaması — öğün/spor paylaşımı, streak/rozetler, gruplar, mesajlaşma, BKİ/kalori araçları.
+Social Fit is a gamified social media mobile application designed to help users build healthy habits together.
 
-## Proje yapısı
+Users can share meals, track streaks, join groups, compete on leaderboards, and stay motivated through community interaction.
 
-- **backend/** — Node.js + Express + Prisma (PostgreSQL) API
-- **mobile/** — React Native (Expo) iOS/Android uygulaması
+---
 
-## Backend
+## 🚀 Vision
 
-```bash
-cd backend
-cp .env.example .env   # DATABASE_URL ve JWT_SECRET ayarla
-npm install
-mkdir -p uploads
-npx prisma db push
-node prisma/seed.js
-npm run dev
-```
+We believe healthy habits are easier to maintain when done socially.
 
-API: `http://localhost:4000`
+Social Fit combines:
+- 📸 Instagram-style meal sharing  
+- 🔥 Duolingo-style streak system  
+- 🏆 Competitive leaderboard with star points  
+- 👥 Group-based challenges  
+- 💬 Real-time messaging  
 
-## Mobile
+---
 
-```bash
-cd mobile
-npm install
-# src/config.js içinde API_BASE adresini backend URL ile güncelle (emülatör: localhost, cihaz: bilgisayar IP)
-npx expo start
-```
+## 🧠 Core Features (MVP)
 
-## MVP özellikler
+### 🔐 Authentication
+- Email & password registration
+- Passwords hashed with bcrypt
+- JWT-based authentication
+- Token stored securely on the client
 
-- Kayıt / giriş (e-posta)
-- Profil (düzenleme, streak, rozetler)
-- Beslenme günlüğü (foto + log), feed, beğeni, yorum
-- Gruplar (oluştur, keşfet, katıl, grup feed)
-- Mesajlaşma (arkadaşlarla sohbet)
-- Streak & rozetler, lider tablosu
-- Araçlar: BKİ, günlük kalori
-- Ayarlar, KVKK/gizlilik linkleri, çıkış
+### 👤 Profile System
+- Username
+- Profile photo
+- Bio
+- Streak counter
+- Star points
 
-## Sonraki adımlar (Faz 2–3)
+### 📸 Post & Feed
+- Upload meal photos
+- Add captions
+- View global / friends feed
+- Like and comment
 
-- Gerçek zamanlı sohbet (WebSocket)
-- Premium abonelik ve koç randevusu ödemeleri (Iyzico/PayTR)
-- Push bildirim altyapısı (FCM/OneSignal)
-- Blog/makale kanalı, özet paylaşım kartları
+### 🔥 Streak System
+- Daily activity tracking
+- Consecutive day streak logic
+- Bonus star multipliers
+- Reset if a day is missed
+
+### ⭐ Star Point System
+Users earn star points for:
+- Posting meals
+- Daily activity logs
+- Maintaining streaks
+- Participating in challenges
+- Receiving engagement
+
+### 🏆 Leaderboard
+- Weekly ranking
+- Monthly ranking
+- All-time ranking
+- Top 3 highlighted (Gold / Silver / Bronze)
+- Users can see their own rank
+
+### 👥 Groups & Challenges
+- Create or join groups
+- Group-based competitions
+- Community interaction
+
+### 💬 Messaging (Planned)
+- 1-on-1 real-time chat
+- Group chat
+
+---
+
+## 🏗 Tech Stack
+
+### 📱 Mobile
+- React Native
+
+### 🖥 Backend
+- Node.js
+- Express / NestJS
+- JWT Authentication
+- bcrypt password hashing
+
+### 🗄 Database
+- Prisma ORM
+- SQLite (MVP phase)
+- Planned migration to PostgreSQL for production
+
+### ☁ Storage
+- Image storage (planned: AWS S3 or Supabase Storage)
+
+### 🔔 Notifications
+- Firebase Cloud Messaging (planned)
+
+---
+
+## 🔐 Security
+
+- Passwords are hashed (bcrypt)
+- JWT_SECRET stored in environment variables
+- No plain-text password storage
+- Auth-protected API routes
+
+---
+
+## 📂 Project Structure
