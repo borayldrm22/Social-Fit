@@ -43,7 +43,7 @@ export default function SearchUsersScreen({ navigation }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.item}
-            onPress={() => navigation.navigate('Chat', { userId: item.id, displayName: item.profile?.displayName || 'Kullanıcı' })}
+            onPress={() => navigation.navigate('Chat', { userId: item.id, displayName: item.profile?.displayName || 'Kullanıcı', avatarUrl: item.profile?.avatarUrl })}
           >
             <Text style={styles.name}>{item.profile?.displayName || 'Kullanıcı'}</Text>
           </TouchableOpacity>

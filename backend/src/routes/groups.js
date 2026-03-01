@@ -19,16 +19,28 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.use(authMiddleware);
 
-// List my groups
+// List my groups (with latest post for "Yeni paylaşım" subtitle)
 router.get('/', async (req, res, next) => {
   try {
     const memberships = await prisma.groupMember.findMany({
       where: { userId: req.user.id },
       include: {
-        group: true,
+        group: {
+          include: {
+            posts: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { caption: true },
+            },
+          },
+        },
       },
     });
-    res.json(memberships.map((m) => m.group));
+    const groups = memberships.map((m) => {
+      const { posts, ...group } = m.group;
+      return { ...group, latestPost: posts[0] || null };
+    });
+    res.json(groups);
   } catch (e) {
     next(e);
   }

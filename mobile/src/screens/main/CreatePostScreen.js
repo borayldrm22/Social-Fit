@@ -34,7 +34,9 @@ export default function CreatePostScreen({ navigation }) {
       }
       await uploadFormData('/api/posts', formData, token);
       await api.post('/api/streaks/record');
-      navigation.goBack();
+      const parent = navigation.getParent();
+      if (parent) parent.navigate('Feed');
+      else navigation.goBack();
     } catch (e) {
       Alert.alert('Hata', e.message || 'Paylaşım yapılamadı.');
     } finally {

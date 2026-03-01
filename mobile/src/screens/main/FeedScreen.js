@@ -181,9 +181,6 @@ export default function FeedScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         ListEmptyComponent={loading ? <Text style={styles.empty}>Yükleniyor...</Text> : <Text style={styles.empty}>Henüz paylaşım yok. İlk paylaşımı siz yapın!</Text>}
       />
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -204,5 +201,4 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: 20 },
   actionText: { marginLeft: 6, color: '#6b7280', fontSize: 14 },
   empty: { textAlign: 'center', padding: 24, color: '#6b7280' },
-  fab: { position: 'absolute', right: 20, bottom: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: '#2d6a4f', justifyContent: 'center', alignItems: 'center' },
 });

@@ -39,7 +39,39 @@ router.get('/conversations', async (req, res, next) => {
       });
     }
     list.sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
-    res.json(list);
+
+    const otherIds = list.map((c) => c.userId);
+
+    // Unread count per conversation (messages they sent me that I haven't read)
+    const unreadCounts = await prisma.message.groupBy({
+      by: ['senderId'],
+      where: {
+        receiverId: req.user.id,
+        senderId: { in: otherIds },
+        read: false,
+      },
+      _count: { id: true },
+    });
+    const unreadMap = Object.fromEntries(unreadCounts.map((u) => [u.senderId, u._count.id]));
+
+    // Points (streak sum last 30 days) per user
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const streaks = await prisma.streak.findMany({
+      where: { userId: { in: otherIds }, date: { gte: since } },
+    });
+    const pointsByUser = {};
+    for (const s of streaks) {
+      pointsByUser[s.userId] = (pointsByUser[s.userId] || 0) + s.count;
+    }
+
+    const result = list.map((c) => ({
+      ...c,
+      unreadCount: unreadMap[c.userId] ?? 0,
+      points: pointsByUser[c.userId] ?? 0,
+    }));
+
+    res.json(result);
   } catch (e) {
     next(e);
   }
