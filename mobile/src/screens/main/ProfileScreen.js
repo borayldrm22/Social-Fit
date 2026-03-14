@@ -3,17 +3,44 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, RefreshCon
 import { useAuth } from '../../context/AuthContext';
 import { useApi } from '../../api/client';
 import { Ionicons } from '@expo/vector-icons';
+import { formatRelativeTimeShort } from '../../utils/formatRelativeTime';
+
+const REASON_LABELS = {
+  post_created: 'Gönderi paylaştın',
+  comment_created: 'Yorum yaptın',
+  like_received: 'Gönderin beğenildi',
+  group_joined: 'Gruba katıldın',
+  friend_added: 'Arkadaş edinin',
+  profile_completed: 'Profilini tamamladın',
+  coach_booked: 'Koç randevusu aldın',
+  streak_daily: 'Günlük seri puanı',
+};
 
 export default function ProfileScreen() {
   const { user, refreshUser } = useAuth();
   const api = useApi();
-  const [streak, setStreak] = useState({ currentStreak: 0, starPoints: 0, badges: [] });
+  const [starStats, setStarStats] = useState({ starPoints: 0, weekStarPoints: 0, monthStarPoints: 0 });
+  const [streak, setStreak] = useState({ currentStreak: 0, badges: [] });
+  const [starHistory, setStarHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await api.get('/api/streaks/me');
-      setStreak({ currentStreak: data.currentStreak || 0, starPoints: data.starPoints || 0, badges: data.badges || [] });
+      const [meRes, streakRes, historyRes] = await Promise.all([
+        api.get('/api/users/me'),
+        api.get('/api/streaks/me'),
+        api.get('/api/users/me/star-history').catch(() => []),
+      ]);
+      setStarStats({
+        starPoints: meRes.starPoints ?? 0,
+        weekStarPoints: meRes.weekStarPoints ?? 0,
+        monthStarPoints: meRes.monthStarPoints ?? 0,
+      });
+      setStreak({
+        currentStreak: streakRes.currentStreak ?? 0,
+        badges: streakRes.badges ?? [],
+      });
+      setStarHistory(Array.isArray(historyRes) ? historyRes : []);
     } catch (e) {}
   }, [api]);
 
@@ -48,20 +75,17 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.stats}>
-        <View style={styles.stat}>
-          <Ionicons name="star" size={22} color="#2d6a4f" />
-          <Text style={styles.statValue}>{streak.starPoints}</Text>
-          <Text style={styles.statLabel}>Yıldız Puan</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{starStats.weekStarPoints}</Text>
+          <Text style={styles.statLabel}>Bu Hafta</Text>
         </View>
-        <View style={styles.stat}>
-          <Ionicons name="trophy" size={22} color="#2d6a4f" />
-          <Text style={styles.statValue}>{streak.badges?.length ?? 0}</Text>
-          <Text style={styles.statLabel}>Başarılar</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{starStats.monthStarPoints}</Text>
+          <Text style={styles.statLabel}>Bu Ay</Text>
         </View>
-        <View style={styles.stat}>
-          <Ionicons name="flag" size={22} color="#2d6a4f" />
-          <Text style={styles.statValue}>{goalsList.length}</Text>
-          <Text style={styles.statLabel}>Hedefler</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{starStats.starPoints}</Text>
+          <Text style={styles.statLabel}>Toplam</Text>
         </View>
       </View>
 
@@ -76,6 +100,23 @@ export default function ProfileScreen() {
           ))
         ) : (
           <Text style={styles.placeholderText}>Henüz rozet yok</Text>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Puan Geçmişi</Text>
+        {starHistory.length > 0 ? (
+          starHistory.map((t) => (
+            <View key={t.id} style={styles.historyRow}>
+              <Text style={styles.historyLabel}>{REASON_LABELS[t.reason] ?? t.reason}</Text>
+              <View style={styles.historyRight}>
+                <Text style={styles.historyPoints}>+{t.points}</Text>
+                <Text style={styles.historyTime}>{formatRelativeTimeShort(t.createdAt)}</Text>
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.placeholderText}>Henüz puan geçmişi yok</Text>
         )}
       </View>
 
@@ -115,17 +156,29 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 4, fontSize: 14, color: '#6b7280' },
   stats: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     backgroundColor: '#fff',
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 12,
   },
-  stat: { alignItems: 'center' },
-  statValue: { marginTop: 6, fontSize: 20, fontWeight: '700', color: '#2d6a4f' },
-  statLabel: { marginTop: 2, fontSize: 12, color: '#6b7280' },
+  statCard: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '700', color: '#2d6a4f' },
+  statLabel: { marginTop: 4, fontSize: 12, color: '#6b7280' },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  historyLabel: { fontSize: 14, color: '#374151', flex: 1 },
+  historyRight: { flexDirection: 'row', alignItems: 'center' },
+  historyPoints: { fontSize: 14, fontWeight: '700', color: '#2d6a4f', marginRight: 12 },
+  historyTime: { fontSize: 12, color: '#9ca3af' },
   card: {
     backgroundColor: '#fff',
     marginHorizontal: 16,

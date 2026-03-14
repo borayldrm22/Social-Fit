@@ -4,6 +4,7 @@ import { useApi } from '../../api/client';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE } from '../../config';
+import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
 // Backend image URLs may use localhost; use API_BASE so images load on device too
 function postImageUri(item) {
@@ -33,6 +34,14 @@ function formatRelativeTime(createdAt) {
 
 function postTypeLabel(type) {
   return type === 'meal' ? 'Yemek' : type === 'workout' ? 'Antrenman' : type || 'Paylaşım';
+}
+
+const FOODLOG_PATTERN = /toplam (\d+) kalori aldım/;
+
+function extractFoodLogCalories(caption) {
+  if (!caption) return null;
+  const m = caption.match(FOODLOG_PATTERN);
+  return m ? parseInt(m[1], 10) : null;
 }
 
 // Local assets for example posts (meals + workout)
@@ -121,7 +130,38 @@ export default function FeedScreen({ navigation }) {
     } catch (e) {}
   };
 
-  const renderItem = ({ item }) => (
+  const foodLogCal = useCallback((item) => {
+    if (item.type !== 'meal') return null;
+    return extractFoodLogCalories(item.caption);
+  }, []);
+
+  const renderQuickActions = () => (
+    <View style={styles.quickStrip}>
+      <TouchableOpacity
+        style={styles.quickPill}
+        activeOpacity={0.75}
+        onPress={() => navigation.getParent()?.navigate('More', { screen: 'FoodLog' })}
+      >
+        <Ionicons name="nutrition-outline" size={15} color="#2d6a4f" />
+        <Text style={styles.quickPillText}>Yemek Ekle</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.quickPill}
+        activeOpacity={0.75}
+        onPress={() => navigation.getParent()?.navigate('Create', {
+          screen: 'CreatePost',
+          params: { prefillType: 'workout' },
+        })}
+      >
+        <Ionicons name="barbell-outline" size={15} color="#2d6a4f" />
+        <Text style={styles.quickPillText}>Antrenman Ekle</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderItem = ({ item }) => {
+    const flCal = foodLogCal(item);
+    return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         {item.user?.profile?.avatarUrl ? (
@@ -132,11 +172,20 @@ export default function FeedScreen({ navigation }) {
           </View>
         )}
         <View style={styles.cardHeaderText}>
-          <Text style={styles.displayName}>{item.user?.profile?.displayName || 'Kullanıcı'}</Text>
+          <DisplayNameWithStars
+            displayName={item.user?.profile?.displayName}
+            starPoints={item.user?.starPoints}
+            nameStyle={styles.displayName}
+          />
           <Text style={styles.metaLine}>
             {postTypeLabel(item.type)} · {formatRelativeTime(item.createdAt)}
           </Text>
         </View>
+        {flCal != null && (
+          <View style={styles.calBadge}>
+            <Text style={styles.calBadgeText}>🥗 {flCal} kal</Text>
+          </View>
+        )}
       </View>
       {item.caption ? <Text style={styles.caption}>{item.caption}</Text> : null}
       {item.imageLocal && EXAMPLE_IMAGES[item.imageLocal] ? (
@@ -170,7 +219,7 @@ export default function FeedScreen({ navigation }) {
         </TouchableOpacity>
       </View>
     </View>
-  );
+  );};
 
   return (
     <View style={styles.container}>
@@ -178,9 +227,18 @@ export default function FeedScreen({ navigation }) {
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        ListHeaderComponent={renderQuickActions}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         ListEmptyComponent={loading ? <Text style={styles.empty}>Yükleniyor...</Text> : <Text style={styles.empty}>Henüz paylaşım yok. İlk paylaşımı siz yapın!</Text>}
       />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.getParent()?.navigate('More', { screen: 'Coaches' })}
+        activeOpacity={0.9}
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+        <Text style={styles.fabLabel}>Diyetisyenimle Görüş</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -200,5 +258,27 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: 20 },
   actionText: { marginLeft: 6, color: '#6b7280', fontSize: 14 },
+  quickStrip: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, gap: 8 },
+  quickPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#e5e7eb' },
+  quickPillText: { fontSize: 13, fontWeight: '500', color: '#374151', marginLeft: 6 },
+  calBadge: { backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0' },
+  calBadgeText: { fontSize: 11, fontWeight: '600', color: '#2d6a4f' },
   empty: { textAlign: 'center', padding: 24, color: '#6b7280' },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2d6a4f',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  fabLabel: { color: '#fff', fontWeight: '600', fontSize: 13, marginLeft: 8 },
 });

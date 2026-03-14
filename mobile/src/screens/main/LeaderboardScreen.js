@@ -14,19 +14,34 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 const PERIODS = [
-  { key: 'week', label: 'Haftalık' },
-  { key: 'month', label: 'Aylık' },
+  { key: 'week', label: 'Bu Hafta' },
+  { key: 'month', label: 'Bu Ay' },
   { key: 'all', label: 'Tüm Zamanlar' },
 ];
 
 const PRIMARY_GREEN = '#2d6a4f';
-const FOOTER_BG = '#1b4332';
+const GOLD = '#f59e0b';
+const SILVER = '#9ca3af';
+const BRONZE = '#CD7F32';
+
+function getInitials(displayName) {
+  if (!displayName || !displayName.trim()) return '?';
+  const parts = displayName.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return displayName.trim().slice(0, 2).toUpperCase();
+}
+
+function getPointsForPeriod(item, period) {
+  if (period === 'week') return item.weekPoints ?? 0;
+  if (period === 'month') return item.monthPoints ?? 0;
+  return item.allTimePoints ?? item.totalPoints ?? 0;
+}
 
 export default function LeaderboardScreen({ navigation }) {
   const api = useApi();
   const { user } = useAuth();
-  const [period, setPeriod] = useState('month');
-  const [data, setData] = useState({ leaderboard: [], period: 'month', myRank: null, myPoints: 0 });
+  const [period, setPeriod] = useState('week');
+  const [data, setData] = useState({ leaderboard: [], period: 'week', myRank: null, myPoints: 0 });
   const [streak, setStreak] = useState({ currentStreak: 0, starPoints: 0, badges: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,8 +113,8 @@ export default function LeaderboardScreen({ navigation }) {
           screen: 'Chat',
           params: {
             userId: item.userId,
-            displayName: item.profile?.displayName || 'Kullanıcı',
-            avatarUrl: item.profile?.avatarUrl ?? null,
+            displayName: item.displayName || 'Kullanıcı',
+            avatarUrl: item.avatarUrl ?? null,
           },
         });
       }
@@ -109,8 +124,15 @@ export default function LeaderboardScreen({ navigation }) {
 
   const profile = user?.profile || {};
   const list = data.leaderboard || [];
-  const top7 = list.slice(0, 7);
-  const maxPoints = Math.max(...top7.map((e) => e.points), 1);
+  const top3 = list.slice(0, 3);
+  const rest = list.slice(3, 50);
+
+  const rankColor = (rank) => {
+    if (rank === 1) return GOLD;
+    if (rank === 2) return SILVER;
+    if (rank === 3) return BRONZE;
+    return '#6b7280';
+  };
 
   return (
     <ScrollView
@@ -120,7 +142,7 @@ export default function LeaderboardScreen({ navigation }) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. Personal block */}
+      {/* Personal block */}
       <View style={styles.personalBlock}>
         <View style={styles.welcomeRow}>
           <Text style={styles.welcomeText}>Lider tablosuna hoş geldin</Text>
@@ -145,8 +167,6 @@ export default function LeaderboardScreen({ navigation }) {
         <Text style={styles.ctaText}>Aktif kal, yıldız kazan!</Text>
         <View style={styles.calendarStrip}>
           {[0, 1, 2, 3, 4, 5, 6].map((i) => {
-            const d = new Date();
-            d.setDate(d.getDate() - (6 - i));
             const isToday = i === 6;
             return (
               <View
@@ -195,7 +215,7 @@ export default function LeaderboardScreen({ navigation }) {
         </View>
       </View>
 
-      {/* 2. Leaderboard block */}
+      {/* Leaderboard block */}
       <View
         ref={listSectionRef}
         onLayout={(e) => { listSectionYRef.current = e.nativeEvent.layout.y; }}
@@ -226,53 +246,80 @@ export default function LeaderboardScreen({ navigation }) {
         ) : list.length === 0 ? (
           <Text style={styles.empty}>Henüz veri yok.</Text>
         ) : (
-          list.map((item) => {
-            const is1 = item.rank === 1;
-            const is2 = item.rank === 2;
-            const is3 = item.rank === 3;
-            const rowStyle = [
-              styles.leaderRow,
-              is1 && styles.leaderRow1,
-              is2 && styles.leaderRow2,
-              is3 && styles.leaderRow3,
-            ];
-            return (
-              <View key={item.userId} style={rowStyle}>
-                <Text style={styles.leaderRank}>#{item.rank}</Text>
-                {item.profile?.avatarUrl ? (
-                  <Image source={{ uri: item.profile.avatarUrl }} style={styles.leaderAvatar} />
+          <>
+            {/* Top 3 podium cards */}
+            <View style={styles.podiumRow}>
+              {top3.map((item) => {
+                const accent = item.rank === 1 ? GOLD : item.rank === 2 ? SILVER : BRONZE;
+                const isSecond = item.rank === 2;
+                return (
+                  <View
+                    key={item.userId}
+                    style={[
+                      styles.podiumCard,
+                      { borderColor: accent, backgroundColor: `${accent}12` },
+                      isSecond && styles.podiumCardSecond,
+                    ]}
+                  >
+                    <Text style={[styles.podiumRank, { color: accent }]}>{item.rank}</Text>
+                    {item.avatarUrl ? (
+                      <Image source={{ uri: item.avatarUrl }} style={styles.podiumAvatar} />
+                    ) : (
+                      <View style={[styles.podiumAvatar, styles.podiumAvatarPlaceholder, { backgroundColor: accent }]}>
+                        <Text style={styles.podiumInitials}>{getInitials(item.displayName)}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.podiumName} numberOfLines={1}>{item.displayName || 'Kullanıcı'}</Text>
+                    <View style={styles.podiumStreakBadge}>
+                      <Text style={styles.podiumStreakText}>🔥 {item.currentStreak ?? 0}</Text>
+                    </View>
+                    <Text style={[styles.podiumPoints, { color: accent }]}>
+                      {getPointsForPeriod(item, period)}
+                    </Text>
+                    <Text style={styles.podiumPointsLabel}>puan</Text>
+                  </View>
+                );
+              })}
+            </View>
+            {/* Ranks 4–50 */}
+            {rest.map((item) => (
+              <View key={item.userId} style={styles.leaderRow}>
+                <Text style={[styles.leaderRank, { color: rankColor(item.rank) }]}>{item.rank}</Text>
+                {item.avatarUrl ? (
+                  <Image source={{ uri: item.avatarUrl }} style={styles.leaderAvatar} />
                 ) : (
                   <View style={[styles.leaderAvatar, styles.avatarPlaceholder]}>
-                    <Ionicons name="person" size={20} color="#9ca3af" />
+                    <Text style={styles.leaderInitials}>{getInitials(item.displayName)}</Text>
                   </View>
                 )}
                 <View style={styles.leaderInfo}>
-                  <Text style={styles.leaderName} numberOfLines={1}>
-                    {item.profile?.displayName || 'Kullanıcı'}
-                  </Text>
-                  <Text style={styles.leaderMeta}>
-                    Seri: {item.currentStreak ?? 0} gün | Yıldız: {item.starPoints ?? item.points}
-                  </Text>
+                  <View style={styles.leaderNameRow}>
+                    <Text style={styles.leaderName} numberOfLines={1}>{item.displayName || 'Kullanıcı'}</Text>
+                    <View style={styles.streakBadge}>
+                      <Text style={styles.streakBadgeText}>🔥 {item.currentStreak ?? 0}</Text>
+                    </View>
+                  </View>
                 </View>
+                <Text style={styles.leaderPoints}>{getPointsForPeriod(item, period)}</Text>
                 {item.rank > 7 && (
                   <TouchableOpacity style={styles.challengeBtn} onPress={() => openChat(item)}>
                     <Text style={styles.challengeBtnText}>Meydan oku</Text>
                   </TouchableOpacity>
                 )}
               </View>
-            );
-          })
+            ))}
+          </>
         )}
-        {(data.myRank != null || data.myPoints > 0) && (
-          <View style={styles.footerBar}>
-            <Text style={styles.footerText}>
-              Sıralaman: {data.myRank ?? '–'}. | Paylaşmaya devam et… Grup meydan okumalarına katılarak daha fazla yıldız kazan!
-            </Text>
-          </View>
-        )}
+
+        {/* My rank banner */}
+        <View style={styles.myRankBanner}>
+          <Text style={styles.myRankText}>
+            Sıran: #{data.myRank ?? '–'} · {data.myPoints ?? 0} puan
+          </Text>
+        </View>
       </View>
 
-      {/* 3. Your rank + chart */}
+      {/* Your rank + chart */}
       <View style={styles.yourRankBlock}>
         <Text style={styles.yourRankTitle}>Sıralaman</Text>
         <Text style={styles.yourRankSub}>
@@ -285,22 +332,26 @@ export default function LeaderboardScreen({ navigation }) {
         <TouchableOpacity style={styles.detailsBtn} onPress={scrollToList}>
           <Text style={styles.detailsBtnText}>Detayları gör</Text>
         </TouchableOpacity>
-        {top7.length > 0 && (
+        {list.length > 0 && (
           <View style={styles.chartBlock}>
-            {top7.map((entry) => (
-              <View key={entry.userId} style={styles.chartRow}>
-                <Text style={styles.chartRank}>Sıra {entry.rank}</Text>
-                <View style={styles.chartBarWrap}>
-                  <View
-                    style={[
-                      styles.chartBar,
-                      { width: `${(entry.points / maxPoints) * 100}%` },
-                    ]}
-                  />
+            {list.slice(0, 7).map((entry) => {
+              const maxPoints = Math.max(...list.slice(0, 7).map((e) => getPointsForPeriod(e, period)), 1);
+              const points = getPointsForPeriod(entry, period);
+              return (
+                <View key={entry.userId} style={styles.chartRow}>
+                  <Text style={styles.chartRank}>Sıra {entry.rank}</Text>
+                  <View style={styles.chartBarWrap}>
+                    <View
+                      style={[
+                        styles.chartBar,
+                        { width: `${(points / maxPoints) * 100}%`, backgroundColor: rankColor(entry.rank) },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.chartPoints}>{points}</Text>
                 </View>
-                <Text style={styles.chartPoints}>{entry.points}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </View>
@@ -355,24 +406,63 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: PRIMARY_GREEN },
   tabText: { fontSize: 14, color: '#6b7280' },
   tabTextActive: { fontSize: 14, color: '#fff', fontWeight: '600' },
-  leaderRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12,
-    marginBottom: 4, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb',
+  podiumRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  leaderRow1: { backgroundColor: '#fef3c7' },
-  leaderRow2: { backgroundColor: '#f3f4f6' },
-  leaderRow3: { backgroundColor: '#ffedd5' },
-  leaderRank: { width: 32, fontWeight: '700', color: PRIMARY_GREEN, fontSize: 14 },
+  podiumCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginHorizontal: 4,
+  },
+  podiumCardSecond: { marginTop: 24 },
+  podiumRank: { fontSize: 20, fontWeight: '800', marginBottom: 6 },
+  podiumAvatar: { width: 48, height: 48, borderRadius: 24, marginBottom: 6 },
+  podiumAvatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  podiumInitials: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  podiumName: { fontSize: 12, fontWeight: '600', color: '#111827', marginBottom: 4 },
+  podiumStreakBadge: { marginBottom: 4 },
+  podiumStreakText: { fontSize: 11, color: '#6b7280' },
+  podiumPoints: { fontSize: 18, fontWeight: '800' },
+  podiumPointsLabel: { fontSize: 10, color: '#6b7280' },
+  leaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  leaderRank: { width: 28, fontWeight: '700', fontSize: 15 },
   leaderAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
+  leaderInitials: { fontSize: 14, fontWeight: '700', color: '#374151' },
   leaderInfo: { flex: 1 },
-  leaderName: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  leaderMeta: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  leaderNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  leaderName: { fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 6 },
+  streakBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  streakBadgeText: { fontSize: 11, color: '#92400e', fontWeight: '600' },
+  leaderPoints: { fontSize: 16, fontWeight: '700', color: PRIMARY_GREEN, marginRight: 8 },
   challengeBtn: { backgroundColor: PRIMARY_GREEN, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
   challengeBtnText: { fontSize: 12, color: '#fff', fontWeight: '600' },
-  footerBar: {
-    backgroundColor: FOOTER_BG, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, marginTop: 12,
+  myRankBanner: {
+    backgroundColor: '#1b4332',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginTop: 16,
+    alignItems: 'center',
   },
-  footerText: { fontSize: 13, color: '#fff', textAlign: 'center' },
+  myRankText: { fontSize: 15, color: '#fff', fontWeight: '700' },
   empty: { textAlign: 'center', padding: 24, color: '#6b7280' },
   yourRankBlock: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 },
   yourRankTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 },
@@ -383,6 +473,6 @@ const styles = StyleSheet.create({
   chartRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   chartRank: { width: 56, fontSize: 12, color: '#6b7280' },
   chartBarWrap: { flex: 1, height: 20, backgroundColor: '#e5e7eb', borderRadius: 4, marginHorizontal: 8, overflow: 'hidden' },
-  chartBar: { height: '100%', backgroundColor: PRIMARY_GREEN, borderRadius: 4 },
+  chartBar: { height: '100%', borderRadius: 4 },
   chartPoints: { fontSize: 12, fontWeight: '600', color: '#374151', width: 40, textAlign: 'right' },
 });

@@ -5,17 +5,44 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import AuthStack from './src/navigation/AuthStack';
 import MainTabs from './src/navigation/MainTabs';
-
-// Set to true to bypass login and go straight into the app (for frontend dev)
-const DEV_BYPASS_LOGIN = false;
+import { OnboardingProvider } from './src/context/OnboardingContext';
+import OnboardingNavigator from './src/screens/onboarding/OnboardingNavigator';
 
 function RootNavigator() {
-  const { token } = useAuth();
-  const showMainApp = DEV_BYPASS_LOGIN || token;
+  const { token, user, loading } = useAuth();
+
+  if (loading) return null;
+
+  if (!token) {
+    return (
+      <>
+        <StatusBar style="auto" />
+        <AuthStack />
+      </>
+    );
+  }
+
+  const onboardingCompleted = user?.profile?.onboardingCompleted === true;
+
+  if (!onboardingCompleted) {
+    const handleOnboardingComplete = async () => {
+      // AuthContext.refreshUser will be called in OnboardingStep4,
+      // which updates user.profile.onboardingCompleted → re-render shows MainTabs.
+    };
+    return (
+      <>
+        <StatusBar style="auto" />
+        <OnboardingProvider onComplete={handleOnboardingComplete}>
+          <OnboardingNavigator />
+        </OnboardingProvider>
+      </>
+    );
+  }
+
   return (
     <>
       <StatusBar style="auto" />
-      {showMainApp ? <MainTabs /> : <AuthStack />}
+      <MainTabs />
     </>
   );
 }

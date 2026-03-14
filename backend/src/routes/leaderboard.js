@@ -5,6 +5,17 @@ const { authMiddleware } = require('../middleware/auth');
 const prisma = new PrismaClient();
 const router = express.Router();
 
+// Example leaderboard when no StarTransaction data exists
+const EXAMPLE_LEADERBOARD = [
+  { rank: 1, userId: 'example-1', displayName: 'Alex', avatarUrl: null, totalPoints: 42, currentStreak: 7, weekPoints: 12, monthPoints: 42, allTimePoints: 42 },
+  { rank: 2, userId: 'example-2', displayName: 'Sam', avatarUrl: null, totalPoints: 38, currentStreak: 5, weekPoints: 10, monthPoints: 38, allTimePoints: 38 },
+  { rank: 3, userId: 'example-3', displayName: 'Jordan', avatarUrl: null, totalPoints: 35, currentStreak: 4, weekPoints: 8, monthPoints: 35, allTimePoints: 35 },
+  { rank: 4, userId: 'example-4', displayName: 'Casey', avatarUrl: null, totalPoints: 28, currentStreak: 3, weekPoints: 6, monthPoints: 28, allTimePoints: 28 },
+  { rank: 5, userId: 'example-5', displayName: 'Riley', avatarUrl: null, totalPoints: 22, currentStreak: 2, weekPoints: 5, monthPoints: 22, allTimePoints: 22 },
+  { rank: 6, userId: 'example-6', displayName: 'Morgan', avatarUrl: null, totalPoints: 18, currentStreak: 2, weekPoints: 4, monthPoints: 18, allTimePoints: 18 },
+  { rank: 7, userId: 'example-7', displayName: 'Taylor', avatarUrl: null, totalPoints: 12, currentStreak: 1, weekPoints: 2, monthPoints: 12, allTimePoints: 12 },
+];
+
 router.use(authMiddleware);
 
 function toDateOnly(d) {
@@ -12,8 +23,19 @@ function toDateOnly(d) {
   return new Date(x.getFullYear(), x.getMonth(), x.getDate());
 }
 
-// Compute currentStreak and starPoints from streak records (same logic as streaks/me)
-function streakStatsForUser(records, today) {
+function startOfWeekUTC() {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + mondayOffset, 0, 0, 0, 0));
+}
+
+function startOfMonthUTC() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function currentStreakFromRecords(records, today) {
   let currentStreak = 0;
   let lastDate = null;
   for (const r of records) {
@@ -31,69 +53,96 @@ function streakStatsForUser(records, today) {
     lastDate = d;
     currentStreak = r.count;
   }
-  const starPoints = records.reduce((sum, r) => sum + (r.count >= 7 ? 10 : r.count), 0);
-  return { currentStreak, starPoints };
+  return currentStreak;
 }
 
-// Leaderboard: sum of streak counts in period; optional currentStreak/starPoints per entry
+// GET /api/leaderboard?period=week|month|all
 router.get('/', async (req, res, next) => {
   try {
-    const period = req.query.period || 'month'; // week | month | all
+    const period = req.query.period || 'week';
     const today = toDateOnly(new Date());
-    let since;
-    if (period === 'week') {
-      since = new Date(today);
-      since.setDate(since.getDate() - 7);
-    } else if (period === 'all') {
-      since = new Date(today);
-      since.setDate(since.getDate() - 90); // 90 days for "all-time" to keep query fast
-    } else {
-      since = new Date(today);
-      since.setDate(since.getDate() - 30);
+
+    const weekStart = startOfWeekUTC();
+    const monthStart = startOfMonthUTC();
+
+    const [weekGroups, monthGroups, allGroups] = await Promise.all([
+      prisma.starTransaction.groupBy({
+        by: ['userId'],
+        where: { createdAt: { gte: weekStart } },
+        _sum: { points: true },
+      }),
+      prisma.starTransaction.groupBy({
+        by: ['userId'],
+        where: { createdAt: { gte: monthStart } },
+        _sum: { points: true },
+      }),
+      prisma.starTransaction.groupBy({
+        by: ['userId'],
+        _sum: { points: true },
+      }),
+    ]);
+
+    const weekMap = Object.fromEntries(weekGroups.map((g) => [g.userId, g._sum?.points ?? 0]));
+    const monthMap = Object.fromEntries(monthGroups.map((g) => [g.userId, g._sum?.points ?? 0]));
+    const allMap = Object.fromEntries(allGroups.map((g) => [g.userId, g._sum?.points ?? 0]));
+
+    const hasAnyData = weekGroups.length > 0 || monthGroups.length > 0 || allGroups.length > 0;
+
+    if (!hasAnyData) {
+      return res.json({
+        period,
+        leaderboard: EXAMPLE_LEADERBOARD,
+        myRank: null,
+        myPoints: 0,
+      });
     }
-    const streaks = await prisma.streak.findMany({
-      where: { date: { gte: since } },
-    });
-    const pointsByUser = {};
-    for (const s of streaks) {
-      pointsByUser[s.userId] = (pointsByUser[s.userId] || 0) + s.count;
-    }
-    const sorted = Object.entries(pointsByUser)
+
+    const periodMap = period === 'week' ? weekMap : period === 'month' ? monthMap : allMap;
+    const sortedByPeriod = Object.entries(periodMap)
       .sort((a, b) => b[1] - a[1]);
-    const top50 = sorted.slice(0, 50);
-    const userIds = top50.map(([id]) => id);
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      include: { profile: true },
-      select: { id: true, profile: true },
-    });
-    const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+    const top50UserIds = sortedByPeriod.slice(0, 50).map(([userId]) => userId);
 
-    // Current user rank (from full sorted list)
-    const myEntry = sorted.find(([id]) => id === req.user.id);
-    const myRank = myEntry ? sorted.findIndex(([id]) => id === req.user.id) + 1 : null;
-    const myPoints = myEntry ? myEntry[1] : 0;
+    const myIndex = sortedByPeriod.findIndex(([id]) => id === req.user.id);
+    const myRank = myIndex >= 0 ? myIndex + 1 : null;
+    const myPoints = periodMap[req.user.id] ?? 0;
 
-    // Optional: currentStreak and starPoints for top 50 (batch fetch their streak records)
-    const allRecordsForTop = await prisma.streak.findMany({
-      where: { userId: { in: userIds } },
-      orderBy: { date: 'desc' },
-    });
-    const byUser = {};
-    for (const r of allRecordsForTop) {
-      if (!byUser[r.userId]) byUser[r.userId] = [];
-      byUser[r.userId].push(r);
+    const userIdsToFetch = [...new Set([...top50UserIds, req.user.id])];
+    const [usersWithProfile, streakRecords] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: userIdsToFetch } },
+        include: { profile: { select: { displayName: true, avatarUrl: true } } },
+        select: { id: true, profile: true },
+      }),
+      prisma.streak.findMany({
+        where: { userId: { in: userIdsToFetch } },
+        orderBy: { date: 'desc' },
+        select: { userId: true, date: true, count: true },
+      }),
+    ]);
+
+    const profileMap = Object.fromEntries(
+      usersWithProfile.map((u) => [u.id, { displayName: u.profile?.displayName ?? 'Kullanıcı', avatarUrl: u.profile?.avatarUrl ?? null }])
+    );
+    const streakByUser = {};
+    for (const r of streakRecords) {
+      if (!streakByUser[r.userId]) streakByUser[r.userId] = [];
+      streakByUser[r.userId].push(r);
     }
-    const leaderboard = top50.map(([userId, points], index) => {
-      const recs = byUser[userId] || [];
-      const { currentStreak, starPoints } = streakStatsForUser(recs, today);
+
+    const leaderboard = top50UserIds.map((userId, index) => {
+      const profile = profileMap[userId] ?? { displayName: 'Kullanıcı', avatarUrl: null };
+      const recs = streakByUser[userId] || [];
+      const currentStreak = currentStreakFromRecords(recs, today);
       return {
         rank: index + 1,
         userId,
-        profile: userMap[userId]?.profile,
-        points,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        totalPoints: periodMap[userId] ?? 0,
         currentStreak,
-        starPoints,
+        weekPoints: weekMap[userId] ?? 0,
+        monthPoints: monthMap[userId] ?? 0,
+        allTimePoints: allMap[userId] ?? 0,
       };
     });
 

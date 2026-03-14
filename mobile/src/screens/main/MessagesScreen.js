@@ -13,9 +13,21 @@ import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatRelativeTimeShort } from '../../utils/formatRelativeTime';
+import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
 const HEADER_GREEN = '#4a7c59';
 const PLACEHOLDER_BG = '#e8b4bc';
+
+/** Example conversation shown when there are no real conversations (matches design) */
+const EXAMPLE_CONVERSATION = {
+  userId: '_example',
+  profile: { displayName: 'Alex Johnson', avatarUrl: null },
+  lastMessage: 'Hey, are we still on for the run?',
+  lastAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+  unreadCount: 4,
+  points: 14,
+  starPoints: 12,
+};
 
 function AvatarCircle({ profile, size = 48 }) {
   const uri = profile?.avatarUrl;
@@ -61,6 +73,12 @@ export default function MessagesScreen({ navigation }) {
     );
   }, [conversations, searchQuery]);
 
+  const listData = useMemo(() => {
+    if (filtered.length > 0) return filtered;
+    if ((searchQuery || '').trim()) return [];
+    return [EXAMPLE_CONVERSATION];
+  }, [filtered, searchQuery]);
+
   const profile = user?.profile || {};
 
   return (
@@ -85,9 +103,9 @@ export default function MessagesScreen({ navigation }) {
         />
       </View>
       <FlatList
-        data={filtered}
+        data={listData}
         keyExtractor={(item) => item.userId}
-        contentContainerStyle={filtered.length === 0 ? styles.listEmpty : undefined}
+        contentContainerStyle={listData.length === 0 ? styles.listEmpty : undefined}
         ListEmptyComponent={
           <Text style={styles.empty}>
             {searchQuery.trim() ? 'Arama sonucu yok.' : 'Henüz sohbet yok. Arkadaşlarınızla mesajlaşın.'}
@@ -97,20 +115,24 @@ export default function MessagesScreen({ navigation }) {
           <TouchableOpacity
             style={styles.item}
             activeOpacity={0.7}
-            onPress={() =>
+            onPress={() => {
+              if (item.userId === '_example') return;
               navigation.navigate('Chat', {
                 userId: item.userId,
                 displayName: item.profile?.displayName || 'Kullanıcı',
                 avatarUrl: item.profile?.avatarUrl,
-              })
-            }
+                starPoints: item.starPoints,
+              });
+            }}
           >
             <AvatarCircle profile={item.profile} size={52} />
             <View style={styles.itemCenter}>
               <View style={styles.itemTopRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.profile?.displayName || 'Kullanıcı'}
-                </Text>
+                <DisplayNameWithStars
+                  displayName={item.profile?.displayName}
+                  starPoints={item.starPoints}
+                  nameStyle={styles.name}
+                />
                 <Text style={styles.time}>{formatRelativeTimeShort(item.lastAt)}</Text>
               </View>
               <View style={styles.itemBottomRow}>

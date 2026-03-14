@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useApi } from '../../api/client';
+import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
 export default function SearchUsersScreen({ navigation }) {
   const api = useApi();
@@ -43,9 +44,13 @@ export default function SearchUsersScreen({ navigation }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.item}
-            onPress={() => navigation.navigate('Chat', { userId: item.id, displayName: item.profile?.displayName || 'Kullanıcı', avatarUrl: item.profile?.avatarUrl })}
+            onPress={() => navigation.navigate('Chat', { userId: item.id, displayName: item.profile?.displayName || 'Kullanıcı', avatarUrl: item.profile?.avatarUrl, starPoints: item.starPoints })}
           >
-            <Text style={styles.name}>{item.profile?.displayName || 'Kullanıcı'}</Text>
+            <DisplayNameWithStars
+              displayName={item.profile?.displayName}
+              starPoints={item.starPoints}
+              nameStyle={styles.name}
+            />
           </TouchableOpacity>
         )}
       />

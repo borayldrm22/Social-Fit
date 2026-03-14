@@ -3,6 +3,7 @@ import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet } from 'react
 import { useApi } from '../../api/client';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
 export default function GroupFeedScreen({ route, navigation }) {
   const { groupId, groupName } = route.params || {};
@@ -20,7 +21,11 @@ export default function GroupFeedScreen({ route, navigation }) {
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.displayName}>{item.user?.profile?.displayName || 'Kullanıcı'}</Text>
+        <DisplayNameWithStars
+          displayName={item.user?.profile?.displayName}
+          starPoints={item.user?.starPoints}
+          nameStyle={styles.displayName}
+        />
       </View>
       {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
       {item.caption ? <Text style={styles.caption}>{item.caption}</Text> : null}

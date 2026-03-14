@@ -54,6 +54,36 @@ async function main() {
     ],
   });
   console.log('Example feed posts seeded (with images)');
+
+  // Coaches for dietitian booking
+  await prisma.coach.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000001' },
+    create: {
+      id: '00000000-0000-0000-0000-000000000001',
+      displayName: 'Dr. Ayşe Yılmaz',
+      bio: 'Beslenme ve diyet uzmanı. Kilo yönetimi, spor beslenmesi ve hastalıkta beslenme alanında 10 yıllık deneyim.',
+    },
+    update: {},
+  });
+  await prisma.coach.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000002' },
+    create: {
+      id: '00000000-0000-0000-0000-000000000002',
+      displayName: 'Uzm. Dyt. Mehmet Kaya',
+      bio: 'Klinik diyetisyen. Diyabet, kolesterol ve metabolik sendromda beslenme danışmanlığı.',
+    },
+    update: {},
+  });
+  await prisma.coach.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000003' },
+    create: {
+      id: '00000000-0000-0000-0000-000000000003',
+      displayName: 'Dyt. Zeynep Demir',
+      bio: 'Online diyet danışmanlığı. Sağlıklı yaşam ve sürdürülebilir beslenme alışkanlıkları.',
+    },
+    update: {},
+  });
+  console.log('Coaches seeded');
 }
 
 main()

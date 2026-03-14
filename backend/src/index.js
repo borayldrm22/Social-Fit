@@ -11,6 +11,9 @@ const messageRoutes = require('./routes/messages');
 const streakRoutes = require('./routes/streaks');
 const leaderboardRoutes = require('./routes/leaderboard');
 const toolsRoutes = require('./routes/tools');
+const coachesRoutes = require('./routes/coaches');
+const bookingsRoutes = require('./routes/bookings');
+const foodlogRoutes = require('./routes/foodlog');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -28,6 +31,9 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/streaks', streakRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/tools', toolsRoutes);
+app.use('/api/coaches', coachesRoutes);
+app.use('/api/bookings', bookingsRoutes);
+app.use('/api/foodlog', foodlogRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

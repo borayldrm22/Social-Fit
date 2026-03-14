@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useApi } from '../../api/client';
 import { useFocusEffect } from '@react-navigation/native';
+import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
 export default function CommentScreen({ route }) {
   const { postId } = route.params || {};
@@ -42,7 +43,11 @@ export default function CommentScreen({ route }) {
         ListEmptyComponent={loading ? <Text>Yükleniyor...</Text> : <Text style={styles.empty}>Henüz yorum yok.</Text>}
         renderItem={({ item }) => (
           <View style={styles.comment}>
-            <Text style={styles.author}>{item.user?.profile?.displayName || 'Kullanıcı'}</Text>
+            <DisplayNameWithStars
+              displayName={item.user?.profile?.displayName}
+              starPoints={item.user?.starPoints}
+              nameStyle={styles.author}
+            />
             <Text style={styles.body}>{item.body}</Text>
           </View>
         )}

@@ -31,20 +31,26 @@ model User {
   userBadges  UserBadge[]
   bookings    Booking[]
   subscription Subscription?
+  starTransactions StarTransaction[]
+  foodLogs         FoodLog[]
 }
 
 model Profile {
-  id          String   @id @default(uuid())
-  userId      String   @unique @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName String   @map("display_name")
-  avatarUrl   String?  @map("avatar_url")
-  weightKg    Float?   @map("weight_kg")
-  heightCm    Float?   @map("height_cm")
-  dailyCalorieGoal Int? @map("daily_calorie_goal")
-  goalNote    String?  @map("goal_note")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                   String    @id @default(uuid())
+  userId               String    @unique @map("user_id")
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName          String    @map("display_name")
+  avatarUrl            String?   @map("avatar_url")
+  weightKg             Float?    @map("weight_kg")
+  heightCm             Float?    @map("height_cm")
+  dailyCalorieGoal     Int?      @map("daily_calorie_goal")
+  goalNote             String?   @map("goal_note")
+  onboardingCompleted  Boolean   @default(false) @map("onboarding_completed")
+  goal                 String?   // lose_weight | gain_muscle | eat_healthy | stay_active
+  age                  Int?
+  kvkkConsentAt        DateTime? @map("kvkk_consent_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 }
 
 model Post {
@@ -209,4 +215,34 @@ model Subscription {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("subscriptions")
+}
+
+model StarTransaction {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  points    Int
+  reason    String   // post_created | comment_created | like_received | group_joined | friend_added | profile_completed | coach_booked | streak_daily
+  refId     String?  @map("ref_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("star_transactions")
+}
+
+model FoodLog {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  date      DateTime
+  mealType  String   @map("meal_type") // breakfast | lunch | dinner | snack
+  foodName  String   @map("food_name")
+  calories  Int
+  protein   Float?
+  carbs     Float?
+  fat       Float?
+  imageUrl  String?  @map("image_url")
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("food_logs")
 }

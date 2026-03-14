@@ -5,6 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const { getStarPointsForUserIds } = require('../lib/streakStats');
+const { awardPoints } = require('../services/starService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -51,19 +53,22 @@ router.get('/feed', async (req, res, next) => {
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
-        user: { include: { profile: true }, select: { id: true, profile: true } },
+        user: { select: { id: true, profile: true } },
         _count: { select: { likes: true, comments: true } },
       },
     });
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
     const nextCursor = hasMore ? items[items.length - 1].id : null;
+    const authorIds = items.map((p) => p.user.id);
+    const starPointsMap = await getStarPointsForUserIds(prisma, authorIds);
     const withLiked = await Promise.all(
       items.map(async (p) => {
         const like = await prisma.like.findUnique({
           where: { userId_postId: { userId: req.user.id, postId: p.id } },
         });
-        return { ...p, tags: parseTags(p.tags), metadata: parseMetadata(p.metadata), liked: !!like };
+        const user = { ...p.user, starPoints: starPointsMap[p.user.id] ?? 0 };
+        return { ...p, user, tags: parseTags(p.tags), metadata: parseMetadata(p.metadata), liked: !!like };
       })
     );
     res.json({ posts: withLiked, nextCursor });
@@ -103,9 +108,10 @@ router.post(
           metadata: metadataStr,
         },
         include: {
-          user: { include: { profile: true }, select: { id: true, profile: true } },
+          user: { select: { id: true, profile: true } },
         },
       });
+      await awardPoints(req.user.id, 5, 'post_created', post.id);
       res.status(201).json({ ...post, tags: tagsArr, metadata: metadataObj });
     } catch (e) {
       next(e);
@@ -116,14 +122,28 @@ router.post(
 // Like
 router.post('/:id/like', async (req, res, next) => {
   try {
-    await prisma.like.upsert({
+    const existing = await prisma.like.findUnique({
       where: { userId_postId: { userId: req.user.id, postId: req.params.id } },
-      create: { userId: req.user.id, postId: req.params.id },
-      update: {},
     });
+    if (existing) {
+      res.json({ liked: true });
+      return;
+    }
+    await prisma.like.create({
+      data: { userId: req.user.id, postId: req.params.id },
+    });
+    const post = await prisma.post.findUnique({
+      where: { id: req.params.id },
+      select: { userId: true },
+    });
+    if (post) await awardPoints(post.userId, 1, 'like_received', req.params.id);
     res.json({ liked: true });
   } catch (e) {
     if (e.code === 'P2023') return res.status(404).json({ error: 'Gönderi bulunamadı' });
+    if (e.code === 'P2002') {
+      res.json({ liked: true });
+      return;
+    }
     next(e);
   }
 });
@@ -147,9 +167,15 @@ router.get('/:id/comments', async (req, res, next) => {
     const comments = await prisma.comment.findMany({
       where: { postId: req.params.id },
       orderBy: { createdAt: 'asc' },
-      include: { user: { include: { profile: true }, select: { id: true, profile: true } } },
+      include: { user: { select: { id: true, profile: true } } },
     });
-    res.json(comments);
+    const commenterIds = comments.map((c) => c.user.id);
+    const starPointsMap = await getStarPointsForUserIds(prisma, commenterIds);
+    const withStars = comments.map((c) => ({
+      ...c,
+      user: { ...c.user, starPoints: starPointsMap[c.user.id] ?? 0 },
+    }));
+    res.json(withStars);
   } catch (e) {
     next(e);
   }
@@ -165,8 +191,9 @@ router.post(
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
       const comment = await prisma.comment.create({
         data: { userId: req.user.id, postId: req.params.id, body: req.body.body },
-        include: { user: { include: { profile: true }, select: { id: true, profile: true } } },
+        include: { user: { select: { id: true, profile: true } } },
       });
+      await awardPoints(req.user.id, 2, 'comment_created', comment.id);
       res.status(201).json(comment);
     } catch (e) {
       next(e);

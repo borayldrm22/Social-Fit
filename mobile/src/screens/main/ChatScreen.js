@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useApi } from '../../api/client';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDateDivider, formatTime } from '../../utils/formatRelativeTime';
+import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
 const HEADER_GREEN = '#4a7c59';
 const BUBBLE_ME = '#52b788';
@@ -47,7 +48,7 @@ function buildListItems(messages) {
 }
 
 export default function ChatScreen({ route, navigation }) {
-  const { userId, displayName, avatarUrl } = route.params || {};
+  const { userId, displayName, avatarUrl, starPoints } = route.params || {};
   const { user } = useAuth();
   const api = useApi();
   const [messages, setMessages] = useState([]);
@@ -120,7 +121,11 @@ export default function ChatScreen({ route, navigation }) {
         <View style={styles.headerCenter}>
           <AvatarCircle profile={otherProfile} size={36} />
           <View style={styles.headerCenterText}>
-            <Text style={styles.headerName} numberOfLines={1}>{displayName || 'Kullanıcı'}</Text>
+            <DisplayNameWithStars
+              displayName={displayName}
+              starPoints={starPoints}
+              nameStyle={styles.headerName}
+            />
             <Text style={styles.headerStatus}>Şu an müsait</Text>
           </View>
         </View>

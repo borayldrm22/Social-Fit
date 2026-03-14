@@ -5,6 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const { getStarPointsForUserIds } = require('../lib/streakStats');
+const { awardPoints } = require('../services/starService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -41,6 +43,32 @@ router.get('/', async (req, res, next) => {
       return { ...group, latestPost: posts[0] || null };
     });
     res.json(groups);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Suggested groups to join (3 groups not yet joined, by member count desc)
+router.get('/suggestions', async (req, res, next) => {
+  try {
+    const myGroupIds = await prisma.groupMember
+      .findMany({ where: { userId: req.user.id }, select: { groupId: true } })
+      .then((r) => r.map((x) => x.groupId));
+    const where = myGroupIds.length ? { id: { notIn: myGroupIds } } : {};
+    const groups = await prisma.group.findMany({
+      where,
+      include: { _count: { select: { members: true } } },
+      orderBy: { members: { _count: 'desc' } },
+      take: 3,
+    });
+    const result = groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      description: g.description,
+      imageUrl: g.imageUrl,
+      memberCount: g._count.members,
+    }));
+    res.json(result);
   } catch (e) {
     next(e);
   }
@@ -97,6 +125,16 @@ router.post('/:id/join', async (req, res, next) => {
     await prisma.groupMember.create({
       data: { userId: req.user.id, groupId: req.params.id, role: 'member' },
     });
+    const existingGroupJoinAwards = await prisma.starTransaction.count({
+      where: {
+        userId: req.user.id,
+        reason: 'group_joined',
+        refId: req.params.id,
+      },
+    });
+    if (existingGroupJoinAwards === 0) {
+      await awardPoints(req.user.id, 10, 'group_joined', req.params.id);
+    }
     res.json({ message: 'Gruba katıldınız' });
   } catch (e) {
     if (e.code === 'P2002') return res.status(400).json({ error: 'Zaten üyesisiniz' });
@@ -129,16 +167,19 @@ router.get('/:id/posts', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
-        user: { include: { profile: true }, select: { id: true, profile: true } },
+        user: { select: { id: true, profile: true } },
         _count: { select: { likes: true, comments: true } },
       },
     });
+    const authorIds = posts.map((p) => p.user.id);
+    const starPointsMap = await getStarPointsForUserIds(prisma, authorIds);
     const withLiked = await Promise.all(
       posts.map(async (p) => {
         const like = await prisma.like.findUnique({
           where: { userId_postId: { userId: req.user.id, postId: p.id } },
         });
-        return { ...p, liked: !!like };
+        const user = { ...p.user, starPoints: starPointsMap[p.user.id] ?? 0 };
+        return { ...p, user, liked: !!like };
       })
     );
     res.json(withLiked);

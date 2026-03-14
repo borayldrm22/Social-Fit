@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const { awardPoints } = require('../services/starService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -54,38 +55,48 @@ router.get('/me', async (req, res, next) => {
   }
 });
 
+async function recordStreak(userId) {
+  const today = new Date(toDateOnly(new Date()));
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const prev = await prisma.streak.findUnique({
+    where: { userId_date: { userId, date: yesterday } },
+  });
+  const count = prev ? prev.count + 1 : 1;
+  await prisma.streak.upsert({
+    where: { userId_date: { userId, date: today } },
+    create: { userId, date: today, count },
+    update: { count },
+  });
+  const badges = await prisma.badge.findMany();
+  for (const badge of badges) {
+    if (count >= badge.daysRequired) {
+      await prisma.userBadge.upsert({
+        where: { userId_badgeId: { userId, badgeId: badge.id } },
+        create: { userId, badgeId: badge.id },
+        update: {},
+      });
+    }
+  }
+  const updated = await prisma.streak.findUnique({
+    where: { userId_date: { userId, date: today } },
+  });
+  if (updated) {
+    const streakPoints = updated.count >= 7 ? 10 : updated.count;
+    await awardPoints(userId, streakPoints, 'streak_daily', updated.id);
+  }
+  return updated;
+}
+
 // Record activity for today (call when user posts or logs a meal)
 router.post('/record', async (req, res, next) => {
   try {
-    const today = new Date(toDateOnly(new Date()));
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const prev = await prisma.streak.findUnique({
-      where: { userId_date: { userId: req.user.id, date: yesterday } },
-    });
-    const count = prev ? prev.count + 1 : 1;
-    await prisma.streak.upsert({
-      where: { userId_date: { userId: req.user.id, date: today } },
-      create: { userId: req.user.id, date: today, count },
-      update: { count },
-    });
-    const badges = await prisma.badge.findMany();
-    for (const badge of badges) {
-      if (count >= badge.daysRequired) {
-        await prisma.userBadge.upsert({
-          where: { userId_badgeId: { userId: req.user.id, badgeId: badge.id } },
-          create: { userId: req.user.id, badgeId: badge.id },
-          update: {},
-        });
-      }
-    }
-    const updated = await prisma.streak.findUnique({
-      where: { userId_date: { userId: req.user.id, date: today } },
-    });
-    res.json(updated);
+    const result = await recordStreak(req.user.id);
+    res.json(result);
   } catch (e) {
     next(e);
   }
 });
 
 module.exports = router;
+module.exports.recordStreak = recordStreak;
