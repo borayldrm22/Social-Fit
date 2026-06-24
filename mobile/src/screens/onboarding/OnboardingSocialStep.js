@@ -9,13 +9,14 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { useOnboarding } from '../../context/OnboardingContext';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE } from '../../config';
-const TOTAL_STEPS = 4;
-const CURRENT_STEP = 4;
+import OnboardingProgress from '../../components/onboarding/ProgressBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { persistOnboardingComplete } from '../../onboarding/submitOnboarding';
+import { useOnboardingExit } from '../../context/OnboardingExitContext';
 
 const GROUP_PLACEHOLDER_COLORS = ['#2d6a4f', '#1e40af', '#7c3aed'];
 
@@ -36,10 +37,10 @@ function groupImageUri(group) {
   return url;
 }
 
-export default function OnboardingStep4({ navigation }) {
-  const { goal, age, weightKg, heightCm, dailyCalorieGoal, onComplete } = useOnboarding();
+export default function OnboardingSocialStep({ navigation }) {
   const api = useApi();
   const { refreshUser } = useAuth();
+  const { dismissParentOnComplete } = useOnboardingExit();
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,8 +68,10 @@ export default function OnboardingStep4({ navigation }) {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   const followUser = async (userId) => {
     if (followedIds.has(userId)) return;
@@ -91,53 +94,36 @@ export default function OnboardingStep4({ navigation }) {
   const completeOnboarding = useCallback(async () => {
     setSubmitting(true);
     try {
-      const body = {
-        goal,
-        age,
-        weightKg,
-        heightCm,
-        dailyCalorieGoal,
-        onboardingCompleted: true,
-      };
-      if (weightKg != null || heightCm != null) body.kvkkConsent = true;
-      await api.patch('/api/users/me/onboarding', body);
+      await persistOnboardingComplete(api);
       await refreshUser();
-      onComplete?.();
+      if (dismissParentOnComplete) {
+        try {
+          const parent = navigation.getParent();
+          if (parent?.canGoBack?.()) {
+            parent.goBack();
+          }
+        } catch (_navErr) {
+          /* ignore */
+        }
+      }
     } catch (e) {
-      Alert.alert(
-        'Kaydedilemedi',
-        'Veriler kaydedilemedi, lütfen tekrar deneyin.',
-        [{ text: 'Tamam' }],
-      );
+      Alert.alert('Kaydedilemedi', 'Veriler kaydedilemedi, lütfen tekrar deneyin.', [{ text: 'Tamam' }]);
     } finally {
       setSubmitting(false);
     }
-  }, [api, goal, age, weightKg, heightCm, dailyCalorieGoal, refreshUser, onComplete]);
-
-  const handleStart = () => completeOnboarding();
-  const handleSkip = () => completeOnboarding();
+  }, [api, refreshUser, navigation, dismissParentOnComplete]);
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2d6a4f" />
+        <ActivityIndicator size="large" color="#22C55E" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.progressWrap}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${(CURRENT_STEP / TOTAL_STEPS) * 100}%` }]} />
-          </View>
-          <Text style={styles.progressLabel}>
-            Adım {CURRENT_STEP} / {TOTAL_STEPS}
-          </Text>
-        </View>
-      </View>
-
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <OnboardingProgress step={13} total={13} onBack={() => navigation.goBack()} canGoBack />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Topluluğa katıl</Text>
         <Text style={styles.subtitle}>En az 1 kişiyi takip et veya bir gruba katıl</Text>
@@ -166,7 +152,9 @@ export default function OnboardingStep4({ navigation }) {
                     <Text style={styles.userInitials}>{getInitials(u.displayName)}</Text>
                   </View>
                 )}
-                <Text style={styles.userName} numberOfLines={1}>{u.displayName || 'Kullanıcı'}</Text>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {u.displayName || 'Kullanıcı'}
+                </Text>
                 <View style={styles.starBadge}>
                   <Ionicons name="star" size={10} color="#f59e0b" />
                   <Text style={styles.starPoints}>{u.starPoints ?? 0}</Text>
@@ -190,12 +178,20 @@ export default function OnboardingStep4({ navigation }) {
               {groupImageUri(g) ? (
                 <Image source={{ uri: groupImageUri(g) }} style={styles.groupImage} />
               ) : (
-                <View style={[styles.groupImage, styles.groupImagePlaceholder, { backgroundColor: GROUP_PLACEHOLDER_COLORS[idx % GROUP_PLACEHOLDER_COLORS.length] }]}>
+                <View
+                  style={[
+                    styles.groupImage,
+                    styles.groupImagePlaceholder,
+                    { backgroundColor: GROUP_PLACEHOLDER_COLORS[idx % GROUP_PLACEHOLDER_COLORS.length] },
+                  ]}
+                >
                   <Ionicons name="people" size={24} color="#fff" />
                 </View>
               )}
               <View style={styles.groupBody}>
-                <Text style={styles.groupName} numberOfLines={1}>{g.name}</Text>
+                <Text style={styles.groupName} numberOfLines={1}>
+                  {g.name}
+                </Text>
                 <Text style={styles.groupMeta}>{g.memberCount ?? 0} üye</Text>
               </View>
               <TouchableOpacity
@@ -214,20 +210,23 @@ export default function OnboardingStep4({ navigation }) {
 
         <TouchableOpacity
           style={[styles.primaryButton, (!canFinish || submitting) && styles.primaryButtonDisabled]}
-          onPress={handleStart}
+          onPress={completeOnboarding}
           disabled={!canFinish || submitting}
           activeOpacity={0.8}
         >
-          <Text style={styles.primaryButtonText}>
-            {submitting ? 'Kaydediliyor...' : 'Başlayalım!'}
-          </Text>
+          <Text style={styles.primaryButtonText}>{submitting ? 'Kaydediliyor...' : 'Başlayalım!'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.skipLink} onPress={handleSkip} disabled={submitting} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity
+          style={styles.skipLink}
+          onPress={completeOnboarding}
+          disabled={submitting}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Text style={styles.skipText}>Atla</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -238,28 +237,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  progressWrap: {},
-  progressTrack: {
-    height: 6,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#2d6a4f',
-    borderRadius: 3,
-  },
-  progressLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 8,
   },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 48 },
@@ -296,7 +273,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   userCardFollowed: {
-    borderColor: '#2d6a4f',
+    borderColor: '#22C55E',
     backgroundColor: '#f0fdf4',
   },
   userAvatar: {
@@ -309,7 +286,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2d6a4f',
+    backgroundColor: '#22C55E',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -342,7 +319,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#2d6a4f',
+    backgroundColor: '#22C55E',
   },
   followedChipText: {
     fontSize: 11,
@@ -387,7 +364,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#2d6a4f',
+    backgroundColor: '#22C55E',
   },
   joinButtonDone: {
     backgroundColor: '#d1fae5',
@@ -401,7 +378,7 @@ const styles = StyleSheet.create({
     color: '#166534',
   },
   primaryButton: {
-    backgroundColor: '#2d6a4f',
+    backgroundColor: '#22C55E',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',

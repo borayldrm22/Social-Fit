@@ -58,11 +58,11 @@ export function AuthProvider({ children }) {
     return data;
   }, [setToken]);
 
-  const register = useCallback(async (email, password, displayName) => {
+  const register = useCallback(async (email, password, displayName, userName) => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, displayName }),
+      body: JSON.stringify({ email, password, displayName, userName }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Kayıt başarısız');
@@ -79,15 +79,24 @@ export function AuthProvider({ children }) {
   }, [setToken]);
 
   const refreshUser = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_j) {
+        data = null;
+      }
       if (res.ok) {
-        const data = await res.json();
         setUser(data.user);
         await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
       }
-    } catch (e) {}
+    } catch {
+      /* ignore refresh errors */
+    }
   }, [token]);
 
   const value = { token, user, loading, login, register, logout, refreshUser };

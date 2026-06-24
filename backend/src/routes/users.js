@@ -45,6 +45,31 @@ router.get('/me', async (req, res, next) => {
   }
 });
 
+// Monthly post calendar — returns posts for a given month grouped by day
+router.get('/me/calendar', async (req, res, next) => {
+  try {
+    const { month } = req.query; // format: "2026-06"
+    const now = new Date();
+    const year  = month ? parseInt(month.split('-')[0], 10) : now.getFullYear();
+    const mon   = month ? parseInt(month.split('-')[1], 10) - 1 : now.getMonth();
+    const start = new Date(year, mon, 1);
+    const end   = new Date(year, mon + 1, 0, 23, 59, 59, 999);
+    const posts = await prisma.post.findMany({
+      where: { userId: req.user.id, createdAt: { gte: start, lte: end } },
+      select: { id: true, type: true, imageUrl: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    // Group by day (1-31)
+    const days = {};
+    for (const p of posts) {
+      const day = new Date(p.createdAt).getDate();
+      if (!days[day]) days[day] = [];
+      days[day].push({ id: p.id, type: p.type, hasImage: !!p.imageUrl });
+    }
+    res.json({ year, month: mon + 1, days });
+  } catch (e) { next(e); }
+});
+
 // Last 20 star transactions for "Puan Geçmişi"
 router.get('/me/star-history', async (req, res, next) => {
   try {
@@ -72,13 +97,14 @@ router.patch(
     body('dailyCalorieGoal').optional().isInt({ min: 0 }),
     body('onboardingCompleted').optional().isBoolean(),
     body('kvkkConsent').optional().isBoolean(),
+    body('onboardingData').optional().isObject(),
   ],
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-      const { goal, age, weightKg, heightCm, dailyCalorieGoal, onboardingCompleted } = req.body;
+      const { goal, age, weightKg, heightCm, dailyCalorieGoal, onboardingCompleted, onboardingData } = req.body;
       const data = {};
       if (goal !== undefined) data.goal = goal;
       if (age !== undefined) data.age = age;
@@ -86,6 +112,10 @@ router.patch(
       if (heightCm !== undefined) data.heightCm = heightCm;
       if (dailyCalorieGoal !== undefined) data.dailyCalorieGoal = dailyCalorieGoal;
       if (onboardingCompleted === true) data.onboardingCompleted = true;
+      if (onboardingData !== undefined) {
+        data.onboardingData =
+          typeof onboardingData === 'string' ? onboardingData : JSON.stringify(onboardingData);
+      }
 
       const sendingHealthData = weightKg !== undefined || heightCm !== undefined;
       if (sendingHealthData) {
@@ -139,6 +169,8 @@ router.patch(
       const allowed = ['displayName', 'weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote'];
       const data = {};
       for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
+      // isPublic toggle
+      if (req.body.isPublic !== undefined) data.isPublic = req.body.isPublic === true || req.body.isPublic === 'true';
       if (req.file) data.avatarUrl = `${BASE_URL}/uploads/${req.file.filename}`;
 
       const healthKeys = ['weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote'];
@@ -235,26 +267,188 @@ router.get('/suggestions', async (req, res, next) => {
   }
 });
 
-// Search users (for friends)
+// Search users (for friends) — case-insensitive via raw SQL LIKE for SQLite
 router.get('/search', async (req, res, next) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q) return res.json([]);
-    const users = await prisma.user.findMany({
-      where: {
-        id: { not: req.user.id },
-        profile: { displayName: { contains: q, mode: 'insensitive' } },
-      },
-      select: { id: true, profile: true },
-      take: 20,
-    });
+
+    // SQLite: LIKE is case-insensitive for ASCII by default
+    const users = await prisma.$queryRaw`
+      SELECT u.id, p.display_name as displayName, p.avatar_url as avatarUrl, p.goal_note as goalNote
+      FROM "User" u
+      JOIN "Profile" p ON p.user_id = u.id
+      WHERE u.id != ${req.user.id}
+        AND p.display_name LIKE ${'%' + q + '%'}
+      LIMIT 20
+    `;
+
     const userIds = users.map((u) => u.id);
     const starPointsMap = await getStarPointsForUserIds(prisma, userIds);
-    const withStars = users.map((u) => ({ ...u, starPoints: starPointsMap[u.id] ?? 0 }));
-    res.json(withStars);
+
+    const result = users.map((u) => ({
+      id: u.id,
+      profile: { displayName: u.displayName, avatarUrl: u.avatarUrl, goalNote: u.goalNote },
+      starPoints: starPointsMap[u.id] ?? 0,
+    }));
+
+    res.json(result);
   } catch (e) {
     next(e);
   }
+});
+
+// GET public profile of any user
+router.get('/:id', async (req, res, next) => {
+  try {
+    const targetId = req.params.id;
+    const user = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: {
+        id: true,
+        profile: true,
+        _count: { select: { posts: true } },
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+
+    const [starPointsMap, streakMap] = await Promise.all([
+      getStarPointsForUserIds(prisma, [targetId]),
+      getCurrentStreakForUserIds(prisma, [targetId]),
+    ]);
+
+    // Leaderboard rank (kaç kişi bu kullanıcıdan fazla puana sahip + 1)
+    const allStars = await prisma.starTransaction.groupBy({
+      by: ['userId'],
+      _sum: { points: true },
+    });
+    const myPoints = starPointsMap[targetId] ?? 0;
+    const rank = allStars.filter((r) => (r._sum.points ?? 0) > myPoints).length + 1;
+
+    // Takip durumu
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { userId: req.user.id, friendId: targetId },
+          { userId: targetId, friendId: req.user.id },
+        ],
+      },
+    });
+    const followStatus = friendship?.status ?? null; // pending | accepted | null
+    const isFollowing = followStatus === 'accepted';
+
+    // Takipçi / Takip edilen sayısı (friendship tablosundan)
+    const [followerCount, followingCount] = await Promise.all([
+      prisma.friendship.count({ where: { friendId: targetId, status: 'accepted' } }),
+      prisma.friendship.count({ where: { userId: targetId, status: 'accepted' } }),
+    ]);
+
+    // isPublic bilgisini raw SQL ile çek (Prisma client generate edilmemiş olabilir)
+    const privacyRow = await prisma.$queryRaw`
+      SELECT is_public FROM "Profile" WHERE user_id = ${targetId} LIMIT 1
+    `;
+    const isPublic = privacyRow.length > 0 ? privacyRow[0].is_public !== 0 : true;
+
+    res.json({
+      id: user.id,
+      profile: user.profile,
+      postCount: user._count.posts,
+      followerCount,
+      followingCount,
+      starPoints: myPoints,
+      currentStreak: streakMap[targetId] ?? 0,
+      leaderboardRank: rank,
+      isFollowing,
+      followStatus,
+      isPublic,
+    });
+  } catch (e) { next(e); }
+});
+
+// GET user's posts
+router.get('/:id/posts', async (req, res, next) => {
+  try {
+    const posts = await prisma.post.findMany({
+      where: { userId: req.params.id },
+      orderBy: { createdAt: 'desc' },
+      take: 18,
+      select: {
+        id: true, type: true, imageUrl: true, caption: true, createdAt: true,
+        _count: { select: { likes: true, comments: true } },
+      },
+    });
+    res.json(posts);
+  } catch (e) { next(e); }
+});
+
+// GET common groups between current user and target user
+router.get('/:id/common-groups', async (req, res, next) => {
+  try {
+    const myGroupIds = await prisma.groupMember
+      .findMany({ where: { userId: req.user.id }, select: { groupId: true } })
+      .then((r) => r.map((x) => x.groupId));
+
+    const theirGroupIds = await prisma.groupMember
+      .findMany({ where: { userId: req.params.id }, select: { groupId: true } })
+      .then((r) => r.map((x) => x.groupId));
+
+    const commonIds = myGroupIds.filter((id) => theirGroupIds.includes(id));
+    if (commonIds.length === 0) return res.json([]);
+
+    const groups = await prisma.group.findMany({
+      where: { id: { in: commonIds } },
+      include: { _count: { select: { members: true } } },
+    });
+    res.json(groups.map((g) => ({
+      id: g.id, name: g.name, description: g.description,
+      imageUrl: g.imageUrl, memberCount: g._count.members,
+    })));
+  } catch (e) { next(e); }
+});
+
+// Follow a user — private hesaplarda pending, public'te accepted
+router.post('/:id/follow', async (req, res, next) => {
+  try {
+    const friendId = req.params.id;
+    if (friendId === req.user.id) return res.status(400).json({ error: 'Kendinizi takip edemezsiniz' });
+    const existing = await prisma.friendship.findFirst({
+      where: { OR: [{ userId: req.user.id, friendId }, { userId: friendId, friendId: req.user.id }] },
+    });
+    if (existing) return res.status(400).json({ error: 'Zaten takip ediyorsunuz veya istek bekliyor', status: existing.status });
+
+    // Hedef kullanıcının isPublic durumunu kontrol et
+    const privacyRow = await prisma.$queryRaw`SELECT is_public FROM "Profile" WHERE user_id = ${friendId} LIMIT 1`;
+    const isPublic = privacyRow.length > 0 ? privacyRow[0].is_public !== 0 : true;
+    const status = isPublic ? 'accepted' : 'pending';
+
+    const fr = await prisma.friendship.create({ data: { userId: req.user.id, friendId, status } });
+
+    // Bildirim gönder
+    const { createNotification } = require('./notifications');
+    if (isPublic) {
+      await createNotification(friendId, req.user.id, 'follow_accepted'); // direkt kabul bildirimi yok, isteğe bağlı
+    } else {
+      await createNotification(friendId, req.user.id, 'follow_request');
+    }
+
+    res.status(201).json({ message: isPublic ? 'Takip edildi' : 'Takip isteği gönderildi', status, friendshipId: fr.id });
+  } catch (e) { next(e); }
+});
+
+// Unfollow a user
+router.delete('/:id/follow', async (req, res, next) => {
+  try {
+    const friendId = req.params.id;
+    await prisma.friendship.deleteMany({
+      where: {
+        OR: [
+          { userId: req.user.id, friendId },
+          { userId: friendId, friendId: req.user.id },
+        ],
+      },
+    });
+    res.json({ message: 'Takipten çıkıldı' });
+  } catch (e) { next(e); }
 });
 
 // Friends: send request

@@ -29,6 +29,7 @@ router.get('/', async (req, res, next) => {
       include: {
         group: {
           include: {
+            _count: { select: { members: true } },
             posts: {
               orderBy: { createdAt: 'desc' },
               take: 1,
@@ -86,6 +87,88 @@ router.get('/discover', async (req, res, next) => {
     });
     res.json(groups);
   } catch (e) {
+    next(e);
+  }
+});
+
+// Group detail — id, name, description, imageUrl, memberCount, current user's role, members list
+router.get('/:id', async (req, res, next) => {
+  try {
+    const group = await prisma.group.findUnique({
+      where: { id: req.params.id },
+      include: {
+        _count: { select: { members: true } },
+        members: {
+          include: { user: { select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+    if (!group) return res.status(404).json({ error: 'Grup bulunamadı' });
+
+    const myMembership = group.members.find((m) => m.userId === req.user.id);
+    const myRole = myMembership?.role || null;
+
+    res.json({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      imageUrl: group.imageUrl,
+      createdBy: group.createdBy,
+      memberCount: group._count.members,
+      myRole,
+      members: group.members.map((m) => ({
+        userId: m.userId,
+        role: m.role,
+        joinedAt: m.joinedAt,
+        displayName: m.user.profile?.displayName || m.user.id,
+        avatarUrl: m.user.profile?.avatarUrl || null,
+      })),
+    });
+  } catch (e) { next(e); }
+});
+
+// Edit group (admin only) — name, description, image
+router.patch(
+  '/:id',
+  upload.single('image'),
+  async (req, res, next) => {
+    try {
+      const membership = await prisma.groupMember.findUnique({
+        where: { userId_groupId: { userId: req.user.id, groupId: req.params.id } },
+      });
+      if (!membership || membership.role !== 'admin') {
+        return res.status(403).json({ error: 'Sadece grup admini düzenleyebilir' });
+      }
+      const data = {};
+      if (req.body.name?.trim()) data.name = req.body.name.trim();
+      if (req.body.description !== undefined) data.description = req.body.description.trim() || null;
+      if (req.file) data.imageUrl = `${BASE_URL}/uploads/${req.file.filename}`;
+
+      const group = await prisma.group.update({ where: { id: req.params.id }, data });
+      res.json(group);
+    } catch (e) { next(e); }
+  }
+);
+
+// Remove member (admin only)
+router.delete('/:id/members/:userId', async (req, res, next) => {
+  try {
+    const membership = await prisma.groupMember.findUnique({
+      where: { userId_groupId: { userId: req.user.id, groupId: req.params.id } },
+    });
+    if (!membership || membership.role !== 'admin') {
+      return res.status(403).json({ error: 'Sadece grup admini üye çıkarabilir' });
+    }
+    if (req.params.userId === req.user.id) {
+      return res.status(400).json({ error: 'Kendinizi çıkaramazsınız' });
+    }
+    await prisma.groupMember.delete({
+      where: { userId_groupId: { userId: req.params.userId, groupId: req.params.id } },
+    });
+    res.json({ message: 'Üye gruptan çıkarıldı' });
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Üyelik bulunamadı' });
     next(e);
   }
 });

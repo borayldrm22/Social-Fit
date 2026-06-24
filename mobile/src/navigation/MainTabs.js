@@ -1,11 +1,24 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
+import { useApi } from '../api/client';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { OnboardingProvider } from '../context/OnboardingContext';
 import OnboardingNavigator from '../screens/onboarding/OnboardingNavigator';
+import { OnboardingExitProvider } from '../context/OnboardingExitContext';
+import { DEFAULT_FIRST_SHARE_CAPTION } from '../onboarding/constants';
+import { FIRST_SHARE_KEY } from '../onboarding/submitOnboarding';
 import FeedScreen from '../screens/main/FeedScreen';
 import GroupsScreen from '../screens/main/GroupsScreen';
 import MessagesScreen from '../screens/main/MessagesScreen';
@@ -18,9 +31,12 @@ import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 import GroupFeedScreen from '../screens/main/GroupFeedScreen';
 import CreateGroupScreen from '../screens/main/CreateGroupScreen';
+import EditGroupScreen from '../screens/main/EditGroupScreen';
 import CreatePostScreen from '../screens/main/CreatePostScreen';
 import CommentScreen from '../screens/main/CommentScreen';
+import UserProfileScreen from '../screens/main/UserProfileScreen';
 import MoreScreen from '../screens/main/MoreScreen';
+import NotificationsScreen from '../screens/main/NotificationsScreen';
 import BlogsScreen from '../screens/main/BlogsScreen';
 import BlogDetailScreen from '../screens/main/BlogDetailScreen';
 import CoachesScreen from '../screens/main/CoachesScreen';
@@ -62,6 +78,17 @@ function MoreStack() {
 }
 
 function FeedStack() {
+  const api = useApi();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/api/notifications/unread-count')
+        .then((d) => setUnreadCount(d.count || 0))
+        .catch(() => {});
+    }, [api])
+  );
+
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -79,13 +106,40 @@ function FeedStack() {
             </TouchableOpacity>
           ),
           headerRight: () => (
-            <TouchableOpacity onPress={() => navigation.getParent()?.navigate('More')} style={{ marginRight: 16 }}>
-              <Ionicons name="menu" size={24} color="#2d6a4f" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+              <TouchableOpacity
+                onPress={() => { setUnreadCount(0); navigation.navigate('Notifications'); }}
+                style={{ marginRight: 8, padding: 4 }}
+              >
+                <View>
+                  <Ionicons name="notifications-outline" size={24} color="#2d6a4f" />
+                  {unreadCount > 0 && (
+                    <View style={{
+                      position: 'absolute', top: -4, right: -4,
+                      minWidth: 16, height: 16, borderRadius: 8,
+                      backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center',
+                      paddingHorizontal: 3,
+                    }}>
+                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.getParent()?.navigate('More', { screen: 'MoreMenu' })}
+                style={{ padding: 4 }}
+              >
+                <Ionicons name="menu" size={24} color="#2d6a4f" />
+              </TouchableOpacity>
+            </View>
           ),
         })}
       />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Bildirimler' }} />
       <Stack.Screen name="Comments" component={CommentScreen} options={{ title: 'Yorumlar' }} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
     </Stack.Navigator>
   );
 }
@@ -122,7 +176,8 @@ function GroupsStack() {
         ) })}
       />
       <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ title: 'Grup Oluştur' }} />
-      <Stack.Screen name="GroupFeed" component={GroupFeedScreen} options={{ title: 'Grup' }} />
+      <Stack.Screen name="GroupFeed" component={GroupFeedScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditGroup" component={EditGroupScreen} options={{ title: 'Grubu Düzenle' }} />
     </Stack.Navigator>
   );
 }
@@ -143,14 +198,16 @@ function MessagesStack() {
 
 function OnboardingModalScreen({ navigation }) {
   const { refreshUser } = useAuth();
-  const handleComplete = () => {
-    navigation.goBack();
-    refreshUser();
-  };
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', () => {
+      refreshUser();
+    });
+    return unsub;
+  }, [navigation, refreshUser]);
   return (
-    <OnboardingProvider onComplete={handleComplete}>
+    <OnboardingExitProvider dismissParentOnComplete>
       <OnboardingNavigator />
-    </OnboardingProvider>
+    </OnboardingExitProvider>
   );
 }
 
@@ -181,7 +238,31 @@ function ProfileStack() {
 
 export default function MainTabs() {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+  const [firstShareOpen, setFirstShareOpen] = useState(false);
+  const [shareDraft, setShareDraft] = useState(DEFAULT_FIRST_SHARE_CAPTION);
   const navRef = useRef(null);
+  const { token } = useAuth();
+
+  useEffect(() => {
+    if (!token) return;
+    AsyncStorage.getItem(FIRST_SHARE_KEY).then((v) => {
+      if (v === 'true') {
+        setShareDraft(DEFAULT_FIRST_SHARE_CAPTION);
+        setFirstShareOpen(true);
+      }
+    });
+  }, [token]);
+
+  const dismissFirstShare = () => {
+    AsyncStorage.removeItem(FIRST_SHARE_KEY).catch(() => {});
+    setFirstShareOpen(false);
+  };
+
+  const openCreateWithCaption = () => {
+    const caption = shareDraft.trim() || DEFAULT_FIRST_SHARE_CAPTION;
+    navRef.current?.navigate('Create', { screen: 'CreatePost', params: { prefillCaption: caption } });
+    dismissFirstShare();
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -198,7 +279,15 @@ export default function MainTabs() {
           tabBarLabelStyle: { fontSize: 12 },
         })}
       >
-        <Tab.Screen name="Feed" component={FeedStack} options={{ title: 'Akış', headerShown: false }} />
+        <Tab.Screen
+          name="Feed"
+          component={FeedStack}
+          options={{ title: 'Akış', headerShown: false }}
+          listeners={({ navigation }) => {
+            navRef.current = navigation;
+            return {};
+          }}
+        />
         <Tab.Screen name="Groups" component={GroupsStack} options={{ title: 'Gruplar', headerShown: false }} />
         <Tab.Screen
           name="Create"
@@ -220,15 +309,33 @@ export default function MainTabs() {
               </TouchableOpacity>
             ),
           }}
-          listeners={({ navigation }) => {
-            navRef.current = navigation;
-            return {};
-          }}
         />
         <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false }} />
         <Tab.Screen name="Profile" component={ProfileStack} options={{ title: 'Profil', headerShown: false }} />
         <Tab.Screen name="More" component={MoreStack} options={{ title: 'Daha Fazla', tabBarButton: () => null }} />
       </Tab.Navigator>
+
+      <Modal visible={firstShareOpen} transparent animationType="slide" onRequestClose={dismissFirstShare}>
+        <Pressable style={firstShareStyles.backdrop} onPress={dismissFirstShare}>
+          <Pressable style={firstShareStyles.sheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={firstShareStyles.sheetTitle}>İlk paylaşımını yap ve bonus puan kazan! 🎁</Text>
+            <TextInput
+              style={firstShareStyles.input}
+              multiline
+              value={shareDraft}
+              onChangeText={setShareDraft}
+              placeholder="Mesajın..."
+              placeholderTextColor="#9ca3af"
+            />
+            <TouchableOpacity style={firstShareStyles.primaryBtn} onPress={openCreateWithCaption}>
+              <Text style={firstShareStyles.primaryBtnText}>Paylaş</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={firstShareStyles.secondaryBtn} onPress={dismissFirstShare}>
+              <Text style={firstShareStyles.secondaryBtnText}>Daha sonra</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={fabMenuVisible} transparent animationType="fade" onRequestClose={() => setFabMenuVisible(false)}>
         <Pressable style={fabStyles.overlay} onPress={() => setFabMenuVisible(false)}>
@@ -245,25 +352,55 @@ export default function MainTabs() {
               </View>
               <Text style={fabStyles.menuText}>Gönderi Paylaş</Text>
             </TouchableOpacity>
-            <View style={fabStyles.divider} />
-            <TouchableOpacity
-              style={fabStyles.menuItem}
-              onPress={() => {
-                setFabMenuVisible(false);
-                navRef.current?.navigate('More', { screen: 'FoodLog' });
-              }}
-            >
-              <View style={[fabStyles.menuIcon, { backgroundColor: '#f59e0b18' }]}>
-                <Ionicons name="nutrition-outline" size={22} color="#f59e0b" />
-              </View>
-              <Text style={fabStyles.menuText}>Yemek Ekle</Text>
-            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
     </View>
   );
 }
+
+const firstShareStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  input: {
+    minHeight: 120,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    color: '#111827',
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  primaryBtn: {
+    backgroundColor: '#22C55E',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  secondaryBtn: { paddingVertical: 12, alignItems: 'center' },
+  secondaryBtnText: { color: '#6b7280', fontWeight: '600', fontSize: 15 },
+});
 
 const fabStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 100 },

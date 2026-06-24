@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
 import { useApi } from '../../api/client';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE } from '../../config';
 import DisplayNameWithStars from '../../components/DisplayNameWithStars';
+import { useAuth } from '../../context/AuthContext';
 
 // Backend image URLs may use localhost; use API_BASE so images load on device too
 function postImageUri(item) {
@@ -33,7 +34,10 @@ function formatRelativeTime(createdAt) {
 }
 
 function postTypeLabel(type) {
-  return type === 'meal' ? 'Yemek' : type === 'workout' ? 'Antrenman' : type || 'Paylaşım';
+  if (type === 'meal') return '🥗 Öğün';
+  if (type === 'workout') return '💪 Antrenman';
+  if (type === 'text') return '📝 Yazı';
+  return '📌 Paylaşım';
 }
 
 const FOODLOG_PATTERN = /toplam (\d+) kalori aldım/;
@@ -44,83 +48,111 @@ function extractFoodLogCalories(caption) {
   return m ? parseInt(m[1], 10) : null;
 }
 
-// Local assets for example posts (meals + workout)
-const EXAMPLE_IMAGES = {
-  smoothie: require('../../../assets/smoothie-bowl.png'),
-  chickenRice: require('../../../assets/chicken-rice-bowl.png'),
-  runner: require('../../../assets/runner.png'),
-};
-
-// Example posts shown when feed is empty (e.g. not logged in as admin or API unreachable)
-const EXAMPLE_POSTS = [
-  {
-    id: 'example-0',
-    type: 'meal',
-    caption: 'Tavuklu pilav kase – taze sebzelerle dengeli öğle yemeği. 🍚🥗',
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    imageUrl: null,
-    imageLocal: 'chickenRice',
-    liked: false,
-    user: { profile: { displayName: 'Nilsu Şahin', avatarUrl: null } },
-    _count: { likes: 18, comments: 3 },
-  },
-  {
-    id: 'example-1',
-    type: 'meal',
-    caption: 'Bugün öğle yemeğim: Tavuklu salata ve taze sıkılmış portakal suyu. 🥗🍊',
-    createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    imageUrl: null,
-    imageLocal: 'smoothie',
-    liked: false,
-    user: { profile: { displayName: 'Nilsu Şahin', avatarUrl: null } },
-    _count: { likes: 23, comments: 5 },
-  },
-  {
-    id: 'example-2',
-    type: 'workout',
-    caption: 'Sabah koşusu tamamlandı! 5 km, 25 dakika. #Koşu 🏃‍♂️☁️',
-    createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
-    imageUrl: null,
-    imageLocal: 'runner',
-    liked: false,
-    user: { profile: { displayName: 'Elif Demir', avatarUrl: null } },
-    _count: { likes: 40, comments: 12 },
-  },
+const TABS = [
+  { key: 'friends', label: 'Arkadaşlar', endpoint: '/api/posts/feed' },
+  { key: 'discover', label: 'Keşfet',    endpoint: '/api/posts/discover' },
 ];
 
 export default function FeedScreen({ navigation }) {
   const api = useApi();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const searchTimer = useRef(null);
   const [posts, setPosts] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [failedImageIds, setFailedImageIds] = useState(() => new Set());
+  // userId → true/false (takip ediliyor mu)
+  const [followMap, setFollowMap] = useState({});
+  const followingRef = useRef({});
 
-  const load = useCallback(async (refresh = false) => {
+  const load = useCallback(async (refresh = false, tabIndex = activeTab) => {
+    const base = TABS[tabIndex].endpoint;
     try {
       if (refresh) setRefreshing(true);
       else setLoading(true);
-      const data = await api.get(refresh ? '/api/posts/feed' : `/api/posts/feed?cursor=${nextCursor || ''}`);
+      const url = refresh || !nextCursor ? base : `${base}${base.includes('?') ? '&' : '?'}cursor=${nextCursor}`;
+      const data = await api.get(url);
       const list = data.posts || [];
       setPosts(refresh ? list : (prev) => [...prev, ...list]);
       setNextCursor(data.nextCursor || null);
       if (refresh) setFailedImageIds(new Set());
-      // If feed is empty after refresh, show example posts so the feed is never blank
-      if (refresh && list.length === 0) setPosts(EXAMPLE_POSTS);
+
+      // Post listesinden unique kullanıcıları çıkar, isFollowing bilgisini al
+      if (refresh) {
+        const uniqueUserIds = [...new Set(list.map((p) => p.user?.id).filter(Boolean))];
+        const newMap = {};
+        await Promise.all(
+          uniqueUserIds.map(async (uid) => {
+            if (uid === user?.id) return;
+            try {
+              const profile = await api.get(`/api/users/${uid}`);
+              newMap[uid] = profile.isFollowing ?? false;
+            } catch (_) {}
+          })
+        );
+        followingRef.current = newMap;
+        setFollowMap({ ...newMap });
+      }
     } catch (e) {
       console.warn(e);
-      if (refresh) setPosts(EXAMPLE_POSTS);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [api, nextCursor]);
+  }, [api, nextCursor, activeTab, user]);
 
   useFocusEffect(
     useCallback(() => {
-      load(true);
-    }, [])
+      load(true, activeTab);
+    }, [activeTab])
   );
+
+  const switchTab = useCallback((idx) => {
+    if (idx === activeTab) return;
+    setActiveTab(idx);
+    setPosts([]);
+    setNextCursor(null);
+    // load tetiklenecek useFocusEffect → activeTab değişince de çalışır
+    // Ama useFocusEffect sadece focus'ta tetikleniyor, direkt çağıralım:
+    load(true, idx);
+  }, [activeTab, load]);
+
+  const handleSearch = useCallback((q) => {
+    setSearchQuery(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!q.trim()) { setSearchResults([]); setSearching(false); return; }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const data = await api.get(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
+        setSearchResults(Array.isArray(data) ? data : []);
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
+    }, 350);
+  }, [api]);
+
+  const toggleFollow = async (targetUserId) => {
+    const isFollowing = followingRef.current[targetUserId] ?? false;
+    // Optimistik güncelle
+    followingRef.current[targetUserId] = !isFollowing;
+    setFollowMap((prev) => ({ ...prev, [targetUserId]: !isFollowing }));
+    try {
+      if (isFollowing) {
+        await api.delete(`/api/users/${targetUserId}/follow`);
+      } else {
+        await api.post(`/api/users/${targetUserId}/follow`);
+      }
+    } catch (e) {
+      // Geri al
+      followingRef.current[targetUserId] = isFollowing;
+      setFollowMap((prev) => ({ ...prev, [targetUserId]: isFollowing }));
+    }
+  };
 
   const like = async (postId, liked) => {
     try {
@@ -135,91 +167,191 @@ export default function FeedScreen({ navigation }) {
     return extractFoodLogCalories(item.caption);
   }, []);
 
-  const renderQuickActions = () => (
-    <View style={styles.quickStrip}>
-      <TouchableOpacity
-        style={styles.quickPill}
-        activeOpacity={0.75}
-        onPress={() => navigation.getParent()?.navigate('More', { screen: 'FoodLog' })}
-      >
-        <Ionicons name="nutrition-outline" size={15} color="#2d6a4f" />
-        <Text style={styles.quickPillText}>Yemek Ekle</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.quickPill}
-        activeOpacity={0.75}
-        onPress={() => navigation.getParent()?.navigate('Create', {
-          screen: 'CreatePost',
-          params: { prefillType: 'workout' },
-        })}
-      >
-        <Ionicons name="barbell-outline" size={15} color="#2d6a4f" />
-        <Text style={styles.quickPillText}>Antrenman Ekle</Text>
-      </TouchableOpacity>
+  const renderFeedTabs = () => (
+    <View>
+      {/* Arkadaş Arama Barı */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={18} color="#9CA3AF" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Arkadaş ara..."
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={handleSearch}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
+            <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Arama Sonuçları */}
+      {searchQuery.length > 0 && (
+        <View style={styles.searchResultsWrap}>
+          {searching && (
+            <Text style={styles.searchHint}>Aranıyor...</Text>
+          )}
+          {!searching && searchResults.length === 0 && (
+            <Text style={styles.searchHint}>Kullanıcı bulunamadı.</Text>
+          )}
+          {searchResults.map((u) => (
+            <TouchableOpacity
+              key={u.id}
+              style={styles.searchResultRow}
+              activeOpacity={0.8}
+              onPress={() => {
+                setSearchQuery(''); setSearchResults([]);
+                navigation.navigate('UserProfile', { userId: u.id });
+              }}
+            >
+              {u.profile?.avatarUrl ? (
+                <Image source={{ uri: u.profile.avatarUrl }} style={styles.searchAvatar} />
+              ) : (
+                <View style={[styles.searchAvatar, styles.searchAvatarFallback]}>
+                  <Text style={styles.searchAvatarInitial}>
+                    {(u.profile?.displayName || '?').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.searchResultInfo}>
+                <Text style={styles.searchResultName}>{u.profile?.displayName || 'Kullanıcı'}</Text>
+                {u.starPoints > 0 && (
+                  <Text style={styles.searchResultStar}>⭐ {u.starPoints} puan</Text>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Tab Bar */}
+      <View style={styles.feedTabs}>
+        {TABS.map((t, i) => (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.feedTab, i === activeTab && styles.feedTabActive]}
+            onPress={() => switchTab(i)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.feedTabText, i === activeTab && styles.feedTabTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 
   const renderItem = ({ item }) => {
     const flCal = foodLogCal(item);
+    const typeLabel = postTypeLabel(item.type);
+    const isExample = item.id?.startsWith('example-');
+    const isSelf = item.user?.id === user?.id;
+
     return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        {item.user?.profile?.avatarUrl ? (
-          <Image source={{ uri: item.user.profile.avatarUrl }} style={styles.avatar} />
+      <View style={styles.card}>
+        {/* Kart Başlığı */}
+        <View style={styles.cardHeader}>
+          {/* Avatar — tıklanınca profil */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => !isExample && item.user?.id && navigation.navigate('UserProfile', { userId: item.user.id })}
+          >
+            {item.user?.profile?.avatarUrl ? (
+              <Image source={{ uri: item.user.profile.avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarEmoji}>🧑</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.cardHeaderText}>
+            <View style={styles.nameRow}>
+              <DisplayNameWithStars
+                displayName={item.user?.profile?.displayName}
+                starPoints={item.user?.starPoints}
+                nameStyle={styles.displayName}
+              />
+            </View>
+            <View style={styles.chipRow}>
+              {item.user?.starPoints != null && (
+                <View style={styles.pointsChip}>
+                  <Text style={styles.pointsChipText}>⭐ {item.user.starPoints} puan</Text>
+                </View>
+              )}
+              <View style={styles.typeChip}>
+                <Text style={styles.typeChipText}>{typeLabel}</Text>
+              </View>
+              {flCal != null && (
+                <View style={styles.calChip}>
+                  <Text style={styles.calChipText}>{flCal} kal</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Takip Et butonu — sağ üst köşe, zaten takip ediyorsa gösterme */}
+          {!isExample && !isSelf && item.user?.id && followMap[item.user.id] === false && (
+            <TouchableOpacity
+              style={styles.followBtn}
+              activeOpacity={0.8}
+              onPress={() => toggleFollow(item.user.id)}
+            >
+              <Text style={styles.followBtnText}>Takip Et</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Görsel ya da Yazı Bloğu */}
+        {item.type === 'text' ? (
+          item.caption ? (
+            <View style={styles.textPostBlock}>
+              <Text style={styles.textPostContent}>{item.caption}</Text>
+            </View>
+          ) : null
+        ) : postImageUri(item) && !failedImageIds.has(item.id) ? (
+          <View style={styles.imageWrap}>
+            <Image
+              source={{ uri: postImageUri(item) }}
+              style={styles.postImage}
+              resizeMode="cover"
+              onError={() => setFailedImageIds((s) => new Set(s).add(item.id))}
+            />
+            {item.caption ? <Text style={styles.caption}>{item.caption}</Text> : null}
+          </View>
         ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Ionicons name="person" size={20} color="#9ca3af" />
-          </View>
+          item.caption ? <Text style={styles.caption}>{item.caption}</Text> : null
         )}
-        <View style={styles.cardHeaderText}>
-          <DisplayNameWithStars
-            displayName={item.user?.profile?.displayName}
-            starPoints={item.user?.starPoints}
-            nameStyle={styles.displayName}
-          />
-          <Text style={styles.metaLine}>
-            {postTypeLabel(item.type)} · {formatRelativeTime(item.createdAt)}
-          </Text>
+
+        <Text style={styles.timeText}>{formatRelativeTime(item.createdAt)}</Text>
+
+        {/* Aksiyon Bar */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            onPress={() => !item.id.startsWith('example-') && like(item.id, item.liked)}
+            style={styles.actionBtn}
+          >
+            <Ionicons name={item.liked ? 'heart' : 'heart-outline'} size={22} color={item.liked ? '#EF4444' : '#6b7280'} />
+            <Text style={[styles.actionText, item.liked && styles.actionTextLiked]}>
+              {item._count?.likes ?? 0}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => !item.id.startsWith('example-') && navigation.navigate('Comments', { postId: item.id })}
+            style={styles.actionBtn}
+          >
+            <Ionicons name="chatbubble-outline" size={20} color="#6b7280" />
+            <Text style={styles.actionText}>{item._count?.comments ?? 0}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn}>
+            <Ionicons name="share-outline" size={20} color="#6b7280" />
+          </TouchableOpacity>
         </View>
-        {flCal != null && (
-          <View style={styles.calBadge}>
-            <Text style={styles.calBadgeText}>🥗 {flCal} kal</Text>
-          </View>
-        )}
       </View>
-      {item.caption ? <Text style={styles.caption}>{item.caption}</Text> : null}
-      {item.imageLocal && EXAMPLE_IMAGES[item.imageLocal] ? (
-        <Image source={EXAMPLE_IMAGES[item.imageLocal]} style={styles.postImage} resizeMode="cover" />
-      ) : postImageUri(item) && !failedImageIds.has(item.id) ? (
-        <Image
-          source={{ uri: postImageUri(item) }}
-          style={styles.postImage}
-          resizeMode="cover"
-          onError={() => setFailedImageIds((s) => new Set(s).add(item.id))}
-        />
-      ) : (
-        <View style={styles.postImagePlaceholder}>
-          <Ionicons name="image-outline" size={40} color="#9ca3af" />
-        </View>
-      )}
-      <View style={styles.actions}>
-        <TouchableOpacity
-          onPress={() => !item.id.startsWith('example-') && like(item.id, item.liked)}
-          style={styles.actionBtn}
-        >
-          <Ionicons name={item.liked ? 'heart' : 'heart-outline'} size={22} color={item.liked ? '#e63946' : '#6b7280'} />
-          <Text style={styles.actionText}>{item._count?.likes ?? 0}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => !item.id.startsWith('example-') && navigation.navigate('Comments', { postId: item.id })}
-          style={styles.actionBtn}
-        >
-          <Ionicons name="chatbubble-outline" size={20} color="#6b7280" />
-          <Text style={styles.actionText}>{item._count?.comments ?? 0}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );};
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -227,58 +359,140 @@ export default function FeedScreen({ navigation }) {
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={renderQuickActions}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-        ListEmptyComponent={loading ? <Text style={styles.empty}>Yükleniyor...</Text> : <Text style={styles.empty}>Henüz paylaşım yok. İlk paylaşımı siz yapın!</Text>}
+        ListHeaderComponent={renderFeedTabs()}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true, activeTab)} tintColor="#2d6a4f" />}
+        onEndReached={() => nextCursor && load(false, activeTab)}
+        onEndReachedThreshold={0.4}
+        ListEmptyComponent={
+          loading
+            ? <Text style={styles.empty}>Yükleniyor...</Text>
+            : <Text style={styles.empty}>Henüz paylaşım yok. İlk paylaşımı siz yapın! 🌱</Text>
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
       />
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.getParent()?.navigate('More', { screen: 'Coaches' })}
-        activeOpacity={0.9}
-      >
-        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
-        <Text style={styles.fabLabel}>Diyetisyenimle Görüş</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f0f0' },
-  card: { backgroundColor: '#fff', marginHorizontal: 12, marginBottom: 12, padding: 16, borderRadius: 12 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  avatar: { width: 40, height: 40, borderRadius: 20 },
-  avatarPlaceholder: { backgroundColor: '#e5e7eb', justifyContent: 'center', alignItems: 'center' },
-  cardHeaderText: { marginLeft: 12, flex: 1 },
-  displayName: { fontWeight: '600', fontSize: 16, color: '#111827' },
-  metaLine: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  caption: { fontSize: 14, color: '#374151', marginBottom: 8 },
-  postImage: { width: '100%', height: 240, borderRadius: 8, backgroundColor: '#eee' },
-  postImagePlaceholder: { width: '100%', height: 200, borderRadius: 8, backgroundColor: '#e5e7eb', justifyContent: 'center', alignItems: 'center' },
-  actions: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: 20 },
-  actionText: { marginLeft: 6, color: '#6b7280', fontSize: 14 },
-  quickStrip: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, gap: 8 },
-  quickPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#e5e7eb' },
-  quickPillText: { fontSize: 13, fontWeight: '500', color: '#374151', marginLeft: 6 },
-  calBadge: { backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0' },
-  calBadgeText: { fontSize: 11, fontWeight: '600', color: '#2d6a4f' },
-  empty: { textAlign: 'center', padding: 24, color: '#6b7280' },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 88,
+  container: { flex: 1, backgroundColor: '#F7FAF8' },
+  listContent: { paddingTop: 8, paddingBottom: 100 },
+
+  // ── Arama Barı ────────────────────────────────────────────
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+    borderRadius: 14, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, paddingVertical: 11, fontSize: 15, color: '#111827' },
+  searchResultsWrap: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16, marginBottom: 4,
+    borderRadius: 14, overflow: 'hidden',
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  searchHint: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', padding: 14 },
+  searchResultRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 11,
+    borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+  },
+  searchAvatar: { width: 40, height: 40, borderRadius: 20 },
+  searchAvatarFallback: { backgroundColor: '#D8F3DC', justifyContent: 'center', alignItems: 'center' },
+  searchAvatarInitial: { fontSize: 17, fontWeight: '700', color: '#2D6A4F' },
+  searchResultInfo: { flex: 1, marginLeft: 12 },
+  searchResultName: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  searchResultStar: { fontSize: 12, color: '#D97706', marginTop: 2 },
+
+  // ── Feed Tabs ─────────────────────────────────────────────
+  feedTabs: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2d6a4f',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 24,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  feedTab: { flex: 1, alignItems: 'center', paddingVertical: 12 },
+  feedTabActive: { borderBottomWidth: 2, borderBottomColor: '#2D6A4F' },
+  feedTabText: { fontSize: 14, color: '#9CA3AF', fontWeight: '500' },
+  feedTabTextActive: { color: '#2D6A4F', fontWeight: '700' },
+
+  // ── Post Kartı ────────────────────────────────────────────
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  fabLabel: { color: '#fff', fontWeight: '600', fontSize: 13, marginLeft: 8 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', padding: 14, paddingBottom: 10 },
+  avatar: { width: 44, height: 44, borderRadius: 22 },
+  avatarPlaceholder: { backgroundColor: '#D8F3DC', justifyContent: 'center', alignItems: 'center' },
+  avatarEmoji: { fontSize: 22 },
+  cardHeaderText: { flex: 1, marginLeft: 10 },
+  nameRow: { marginBottom: 4 },
+  displayName: { fontWeight: '700', fontSize: 15, color: '#111827' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  pointsChip: {
+    backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 20,
+  },
+  pointsChipText: { fontSize: 11, color: '#D97706', fontWeight: '600' },
+  typeChip: {
+    backgroundColor: '#D8F3DC', paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 20,
+  },
+  typeChipText: { fontSize: 11, color: '#2D6A4F', fontWeight: '600' },
+  calChip: {
+    backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 20,
+  },
+  calChipText: { fontSize: 11, color: '#DC2626', fontWeight: '600' },
+  timeText: { fontSize: 12, color: '#9CA3AF', paddingHorizontal: 14, paddingBottom: 10, marginTop: 2 },
+  followBtn: {
+    backgroundColor: '#D8F3DC',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, marginLeft: 8,
+  },
+  followBtnText: { fontSize: 12, fontWeight: '700', color: '#2D6A4F' },
+
+  // ── Görsel ───────────────────────────────────────────────
+  imageWrap: { position: 'relative' },
+  postImage: { width: '100%', height: 260, backgroundColor: '#eee' },
+
+  // ── Yazı Gönderi Bloğu ────────────────────────────────────
+  textPostBlock: {
+    marginHorizontal: 14, marginTop: 4, marginBottom: 2,
+    backgroundColor: '#F7FAF8',
+    borderLeftWidth: 3, borderLeftColor: '#2D6A4F',
+    borderRadius: 10, padding: 14,
+  },
+  textPostContent: {
+    fontSize: 16, color: '#1F2937', lineHeight: 24,
+    fontWeight: '500',
+  },
+
+  // ── Caption ───────────────────────────────────────────────
+  caption: { fontSize: 14, color: '#374151', lineHeight: 22, paddingHorizontal: 14, paddingTop: 10 },
+
+  // ── Aksiyon Bar ───────────────────────────────────────────
+  actions: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: '#F9FAFB',
+    marginTop: 4,
+  },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: 16 },
+  actionText: { marginLeft: 5, color: '#6B7280', fontSize: 14 },
+  actionTextLiked: { color: '#EF4444' },
+  // ── Misc ──────────────────────────────────────────────────
+  empty: { textAlign: 'center', padding: 32, color: '#6B7280', fontSize: 15 },
 });

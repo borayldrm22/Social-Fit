@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, Switch } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
@@ -15,6 +16,7 @@ export default function EditProfileScreen({ navigation }) {
   const [heightCm, setHeightCm] = useState(profile.heightCm != null ? String(profile.heightCm) : '');
   const [dailyCalorieGoal, setDailyCalorieGoal] = useState(profile.dailyCalorieGoal != null ? String(profile.dailyCalorieGoal) : '');
   const [goalNote, setGoalNote] = useState(profile.goalNote ?? '');
+  const [isPublic, setIsPublic] = useState(profile.isPublic !== false); // default true
   const [loading, setLoading] = useState(false);
   const [showKvkkModal, setShowKvkkModal] = useState(false);
 
@@ -33,6 +35,7 @@ export default function EditProfileScreen({ navigation }) {
         heightCm: heightCm ? parseFloat(heightCm) : undefined,
         dailyCalorieGoal: dailyCalorieGoal ? parseInt(dailyCalorieGoal, 10) : undefined,
         goalNote: goalNote.trim() || undefined,
+        isPublic,
       };
       if (withConsent) body.kvkkConsent = true;
       await api.patch('/api/users/me', body);
@@ -83,6 +86,32 @@ export default function EditProfileScreen({ navigation }) {
       <TextInput style={styles.input} placeholder="Kilo (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" />
       <TextInput style={styles.input} placeholder="Boy (cm)" value={heightCm} onChangeText={setHeightCm} keyboardType="decimal-pad" />
       <TextInput style={styles.input} placeholder="Günlük kalori hedefi" value={dailyCalorieGoal} onChangeText={setDailyCalorieGoal} keyboardType="number-pad" />
+
+      {/* Profil Gizliliği */}
+      <View style={styles.privacyRow}>
+        <View style={styles.privacyLeft}>
+          <Ionicons
+            name={isPublic ? 'globe-outline' : 'lock-closed-outline'}
+            size={20}
+            color={isPublic ? '#2d6a4f' : '#6B7280'}
+          />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.privacyLabel}>{isPublic ? 'Herkese Açık' : 'Gizli Profil'}</Text>
+            <Text style={styles.privacyDesc}>
+              {isPublic
+                ? 'Gönderileriniz Keşfet\'te görünür'
+                : 'Gönderileriniz yalnızca takipçilere görünür'}
+            </Text>
+          </View>
+        </View>
+        <Switch
+          value={isPublic}
+          onValueChange={setIsPublic}
+          trackColor={{ false: '#D1D5DB', true: '#86efac' }}
+          thumbColor={isPublic ? '#2d6a4f' : '#9CA3AF'}
+        />
+      </View>
+
       <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={submit} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</Text>
       </TouchableOpacity>
@@ -129,6 +158,14 @@ const styles = StyleSheet.create({
   },
   onboardingBannerButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 12 },
+  privacyRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 12, padding: 14, marginBottom: 16,
+  },
+  privacyLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  privacyLabel: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  privacyDesc: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
   button: { backgroundColor: '#2d6a4f', padding: 14, borderRadius: 8, alignItems: 'center' },
   buttonDisabled: { opacity: 0.7 },

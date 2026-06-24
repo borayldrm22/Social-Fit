@@ -106,7 +106,7 @@ export default function LoginScreen({ navigation }) {
                   </View>
                   <Text style={styles.rememberText}>Remember me</Text>
                 </TouchableOpacity>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                   <Text style={styles.forgotText}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>
@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 26,
-    opacity: 0.7,
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 24,

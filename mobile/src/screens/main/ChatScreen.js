@@ -14,9 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatDateDivider, formatTime } from '../../utils/formatRelativeTime';
 import DisplayNameWithStars from '../../components/DisplayNameWithStars';
 
-const HEADER_GREEN = '#4a7c59';
+const HEADER_GREEN = '#2D6A4F';
 const BUBBLE_ME = '#52b788';
-const BUBBLE_THEM = '#2d6a4f';
+const BUBBLE_THEM = '#F3F4F6';
 
 function AvatarCircle({ profile, size = 40 }) {
   const uri = profile?.avatarUrl;
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: '100%', padding: 12, borderRadius: 16 },
   bubbleMe: { backgroundColor: BUBBLE_ME },
   bubbleThem: { backgroundColor: BUBBLE_THEM },
-  bubbleText: { color: '#fff', fontSize: 15 },
+  bubbleText: { color: '#111827', fontSize: 15 },
   bubbleTextMe: { color: '#fff' },
   bubbleTime: { fontSize: 11, color: '#9ca3af', marginTop: 4, marginHorizontal: 4 },
   emptyWrap: { padding: 24, alignItems: 'center' },

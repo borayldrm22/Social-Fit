@@ -14,6 +14,7 @@ const toolsRoutes = require('./routes/tools');
 const coachesRoutes = require('./routes/coaches');
 const bookingsRoutes = require('./routes/bookings');
 const foodlogRoutes = require('./routes/foodlog');
+const { router: notificationRoutes } = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -34,6 +35,7 @@ app.use('/api/tools', toolsRoutes);
 app.use('/api/coaches', coachesRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/foodlog', foodlogRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

@@ -31,8 +31,11 @@ model User {
   userBadges  UserBadge[]
   bookings    Booking[]
   subscription Subscription?
-  starTransactions StarTransaction[]
-  foodLogs         FoodLog[]
+  starTransactions   StarTransaction[]
+  foodLogs           FoodLog[]
+  passwordResetTokens PasswordResetToken[]
+  notificationsReceived Notification[] @relation("NotifReceiver")
+  notificationsSent     Notification[] @relation("NotifSender")
 }
 
 model Profile {
@@ -48,9 +51,25 @@ model Profile {
   onboardingCompleted  Boolean   @default(false) @map("onboarding_completed")
   goal                 String?   // lose_weight | gain_muscle | eat_healthy | stay_active
   age                  Int?
+  onboardingData       String?   @map("onboarding_data") // JSON string (SQLite)
   kvkkConsentAt        DateTime? @map("kvkk_consent_at")
+  isPublic             Boolean   @default(true) @map("is_public")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  fromUserId String?  @map("from_user_id")
+  type       String   // like | follow_request | follow_accepted
+  postId     String?  @map("post_id")
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation("NotifReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  fromUser   User?    @relation("NotifSender", fields: [fromUserId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
 }
 
 model Post {
@@ -227,6 +246,18 @@ model StarTransaction {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("star_transactions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String   // 6 haneli OTP
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
 }
 
 model FoodLog {

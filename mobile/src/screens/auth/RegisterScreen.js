@@ -44,7 +44,7 @@ export default function RegisterScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      await register(email.trim(), password, fullName.trim());
+      await register(email.trim(), password, fullName.trim(), userName.trim());
     } catch (e) {
       Alert.alert('Registration failed', e.message || 'Please try again.');
     } finally {
@@ -180,7 +180,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 26,
-    opacity: 0.7,
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 24,
