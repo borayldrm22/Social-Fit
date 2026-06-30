@@ -1,286 +1,157 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-  TextInput,
-  Image,
-} from 'react-native';
-import { useApi } from '../../api/client';
-import { useFocusEffect } from '@react-navigation/native';
+// GroupsScreen.js — SocialFit redesign · Gruplar / Topluluk
+// Konum: src/screens/main/GroupsScreen.js
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useApi } from '../../api/client';
 import { API_BASE } from '../../config';
+import { colors, font, shadow } from '../../theme/socialFitTheme';
+import { comingSoon } from '../../utils/comingSoon';
 
-const GREEN = '#2D6A4F';
-const GREEN_XL = '#D8F3DC';
-const ORANGE = '#F4845F';
-const ORANGE_L = '#FDDDD5';
+// Backend grubuna sabit emoji/renk atamak için (isimden deterministik)
+const EMOJIS = ['🧓', '🥦', '🏃', '🍬', '👶', '💪', '🧘', '🥗', '🚴', '⚽'];
+const TINTS = ['#FCEAD6', colors.mint, '#FDEBE3', '#FBE9C8', '#E7EEF7', '#E4F3EA', '#FFEDE6', '#FEF3DC'];
+function pickByName(name = '', arr) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return arr[h % arr.length];
+}
 
-const GROUP_EMOJIS = ['💪','🥗','🏃','🧘','🔥','🏋️','🚴','🥊'];
-const GROUP_COLORS = ['#D8F3DC','#DBEAFE','#FEF3C7','#FDDDD5','#EDE9FE','#FCE7F3'];
+// Backend grup (/api/groups) -> kanal şekli
+function mapGroup(g) {
+  return {
+    id: g.id,
+    name: g.name,
+    imageUrl: g.imageUrl || null,
+    emoji: pickByName(g.name, EMOJIS),
+    tint: pickByName(g.name, TINTS),
+    last: g.latestPost?.caption || `${g._count?.members ?? 0} üye`,
+    time: '',
+    unread: 0,
+  };
+}
 
-function groupImageUri(group) {
-  const url = group?.imageUrl;
+function resolveUri(url) {
   if (!url) return null;
-  if (url.includes('/uploads/')) {
-    const path = url.replace(/^https?:\/\/[^/]+/, '');
-    return `${API_BASE}${path}`;
-  }
-  return url;
+  return url.startsWith('http') ? url : `${API_BASE}${url}`;
 }
 
-function matchesSearch(item, q) {
-  if (!q || !q.trim()) return true;
-  const lower = q.trim().toLowerCase();
-  const name = (item.name || '').toLowerCase();
-  const desc = (item.description || '').toLowerCase();
-  return name.includes(lower) || desc.includes(lower);
-}
-
-export default function GroupsScreen({ navigation }) {
-  const api = useApi();
-  const [myGroups, setMyGroups] = useState([]);
-  const [discover, setDiscover] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      const [mine, disc] = await Promise.all([api.get('/api/groups'), api.get('/api/groups/discover')]);
-      setMyGroups(Array.isArray(mine) ? mine : []);
-      setDiscover(Array.isArray(disc) ? disc : []);
-    } catch (e) {
-      setMyGroups([]);
-      setDiscover([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
-
-  useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const joinGroup = useCallback(
-    async (groupId) => {
-      try {
-        await api.post(`/api/groups/${groupId}/join`);
-        load();
-      } catch (e) {}
-    },
-    [api, load]
-  );
-
-  const filteredMyGroups = useMemo(
-    () => myGroups.filter((g) => matchesSearch(g, searchQuery)),
-    [myGroups, searchQuery]
-  );
-  const filteredDiscover = useMemo(
-    () => discover.filter((g) => matchesSearch(g, searchQuery)),
-    [discover, searchQuery]
-  );
-
+// Grup ikonu: fotoğraf varsa göster, yoksa isimden türeyen emoji
+function ChannelIcon({ uri, emoji, tint }) {
+  if (uri) return <Image source={{ uri }} style={styles.chIcon} />;
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Gruplar</Text>
-          <Text style={styles.headerSub}>Topluluğunla birlikte büyü 🌱</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => navigation.navigate('CreateGroup')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.createBtnText}>Yeni Grup</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Arama */}
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color="#9CA3AF" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Grup ara..."
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={GREEN} />}
-      >
-        {/* Kanallarım */}
-        {filteredMyGroups.length > 0 && (
-          <>
-            <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Kanallarım</Text>
-              <Text style={styles.sectionCount}>{filteredMyGroups.length} grup</Text>
-            </View>
-            {filteredMyGroups.map((item, idx) => {
-              const emoji = GROUP_EMOJIS[idx % GROUP_EMOJIS.length];
-              const bgColor = GROUP_COLORS[idx % GROUP_COLORS.length];
-              const memberCount = item._count?.members ?? item.memberCount ?? 0;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.myGroupCard}
-                  onPress={() => navigation.navigate('GroupFeed', { groupId: item.id, groupName: item.name })}
-                  activeOpacity={0.8}
-                >
-                  {groupImageUri(item) ? (
-                    <Image source={{ uri: groupImageUri(item) }} style={styles.groupAvatar} />
-                  ) : (
-                    <View style={[styles.groupAvatar, styles.groupAvatarEmoji, { backgroundColor: bgColor }]}>
-                      <Text style={styles.groupEmoji}>{emoji}</Text>
-                    </View>
-                  )}
-                  <View style={styles.groupBody}>
-                    <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
-                    <View style={styles.groupMeta}>
-                      <Ionicons name="people-outline" size={13} color="#9CA3AF" />
-                      <Text style={styles.groupMetaText}>{memberCount} üye</Text>
-                    </View>
-                    <Text style={styles.groupPreview} numberOfLines={1}>
-                      {item.latestPost?.caption || item.description || 'Son paylaşımları gör →'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
-                </TouchableOpacity>
-              );
-            })}
-          </>
-        )}
-
-        {/* Öne Çıkan Kanallar */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Öne Çıkan Kanallar</Text>
-          <Text style={styles.sectionCount}>{filteredDiscover.length} kanal</Text>
-        </View>
-        {filteredDiscover.length === 0 ? (
-          <Text style={styles.emptySection}>Öne çıkan kanal bulunamadı.</Text>
-        ) : (
-          filteredDiscover.map((item, idx) => {
-            const emoji = GROUP_EMOJIS[(idx + 2) % GROUP_EMOJIS.length];
-            const bgColor = GROUP_COLORS[(idx + 1) % GROUP_COLORS.length];
-            const memberCount = item._count?.members ?? item.memberCount ?? 0;
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.discoverCard}
-                onPress={() => joinGroup(item.id)}
-                activeOpacity={0.8}
-              >
-                {groupImageUri(item) ? (
-                  <Image source={{ uri: groupImageUri(item) }} style={styles.groupAvatar} />
-                ) : (
-                  <View style={[styles.groupAvatar, styles.groupAvatarEmoji, { backgroundColor: bgColor }]}>
-                    <Text style={styles.groupEmoji}>{emoji}</Text>
-                  </View>
-                )}
-                <View style={styles.groupBody}>
-                  <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
-                  <View style={styles.groupMeta}>
-                    <Ionicons name="people-outline" size={13} color="#9CA3AF" />
-                    <Text style={styles.groupMetaText}>{memberCount} üye</Text>
-                  </View>
-                  <Text style={styles.groupSubtitle} numberOfLines={2}>
-                    {item.description || 'Gruba katılarak topluluğun bir parçası ol!'}
-                  </Text>
-                </View>
-                <View style={styles.joinBtn}>
-                  <Text style={styles.joinBtnText}>Katıl</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
-
-        {filteredMyGroups.length === 0 && filteredDiscover.length === 0 && (
-          <Text style={styles.emptySection}>Hiç grup bulunamadı.</Text>
-        )}
-        <View style={{ height: 24 }} />
-      </ScrollView>
+    <View style={[styles.chIcon, { backgroundColor: tint }]}>
+      <Text style={{ fontSize: 25 }}>{emoji}</Text>
     </View>
   );
 }
 
+export default function GroupsScreen({ navigation }) {
+  const api = useApi();
+  const insets = useSafeAreaInsets();
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.get('/api/groups')
+      .then((d) => { if (!cancelled) setChannels(Array.isArray(d) ? d.map(mapGroup) : []); })
+      .catch(() => { if (!cancelled) setChannels([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [api]);
+  useFocusEffect(useCallback(() => load(), [load]));
+
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 28, paddingTop: insets.top }}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Topluluk</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => comingSoon('Grup arama')}><Ionicons name="search" size={19} color="#3C4A42" /></TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtnGreen} activeOpacity={0.85} onPress={() => navigation.navigate('CreateGroup')}>
+            <Ionicons name="add" size={20} color={colors.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.mapBanner} activeOpacity={0.9} onPress={() => navigation.navigate('GroupMap')}>
+        <View style={styles.mapBannerIcon}><Ionicons name="map" size={20} color={colors.white} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.mapBannerTitle}>Haritada Keşfet</Text>
+          <Text style={styles.mapBannerSub}>Yakınındaki grupları haritada gör</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.85)" />
+      </TouchableOpacity>
+
+      <View style={styles.rowHead}>
+        <Text style={styles.sectionTitle}>Kanallarım</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('GroupDiscover')}><Text style={styles.sectionLink}>Keşfet</Text></TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator color={colors.primary} size="large" style={{ marginTop: 40 }} />
+      ) : channels.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={{ fontSize: 40 }}>👥</Text>
+          <Text style={styles.emptyTitle}>Henüz bir gruba katılmadın</Text>
+          <Text style={styles.emptyText}>Sana uygun toplulukları keşfet ve katıl.</Text>
+          <TouchableOpacity style={styles.emptyCta} activeOpacity={0.85} onPress={() => navigation.navigate('GroupDiscover')}>
+            <Ionicons name="compass-outline" size={18} color={colors.white} />
+            <Text style={styles.emptyCtaText}>Grupları Keşfet</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={{ marginHorizontal: 12 }}>
+          {channels.map((c, i) => (
+            <TouchableOpacity key={c.id} activeOpacity={0.7} style={[styles.channel, i < channels.length - 1 && styles.channelBorder]}
+              onPress={() => navigation.navigate('GroupFeed', { groupId: c.id, groupName: c.name })}>
+              <ChannelIcon uri={resolveUri(c.imageUrl)} emoji={c.emoji} tint={c.tint} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.chName}>{c.name}</Text>
+                  <Text style={styles.chTime}>{c.time}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 }}>
+                  <Text style={styles.chLast} numberOfLines={1}>{c.last}</Text>
+                  {c.unread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{c.unread}</Text></View> : null}
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7FAF8' },
-
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: GREEN,
-    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 20,
-    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-  },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
-  createBtn: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, gap: 6,
-  },
-  createBtnText: { fontSize: 14, color: '#fff', fontWeight: '600' },
-
-  // Arama
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16, marginTop: 14, marginBottom: 4,
-    borderRadius: 14, paddingHorizontal: 14,
-    borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: '#111827' },
-
-  // Liste
-  scrollContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24 },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  sectionCount: { fontSize: 13, color: '#9CA3AF' },
-  emptySection: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingVertical: 20 },
-
-  // Benim Gruplarım
-  myGroupCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#F3F4F6',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
-  },
-
-  // Keşfet Kartı
-  discoverCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#E5E7EB',
-  },
-
-  // Ortak
-  groupAvatar: { width: 56, height: 56, borderRadius: 16 },
-  groupAvatarEmoji: { justifyContent: 'center', alignItems: 'center' },
-  groupEmoji: { fontSize: 26 },
-  groupBody: { flex: 1, marginLeft: 12 },
-  groupName: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 4 },
-  groupMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  groupMetaText: { fontSize: 12, color: '#9CA3AF' },
-  groupPreview: { fontSize: 13, color: '#6B7280' },
-  groupSubtitle: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
-
-  joinBtn: {
-    backgroundColor: GREEN_XL, paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20,
-  },
-  joinBtnText: { fontSize: 13, color: GREEN, fontWeight: '700' },
+  screen: { flex: 1, backgroundColor: colors.bg },
+  header: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontFamily: font.displayBold, fontSize: 22, color: colors.ink, letterSpacing: -0.3 },
+  iconBtn: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  iconBtnGreen: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 18, marginBottom: 10 },
+  sectionTitle: { fontFamily: font.bodyBold, fontSize: 16, color: colors.ink },
+  sectionLink: { fontSize: 13, color: colors.primary, fontFamily: font.bodyBold },
+  channel: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 12, paddingHorizontal: 8 },
+  channelBorder: { borderBottomWidth: 1, borderBottomColor: colors.divider },
+  chIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  chName: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },
+  chTime: { fontSize: 11, color: colors.faint, fontFamily: font.body },
+  chLast: { flex: 1, fontSize: 13, color: '#7A887F', fontFamily: font.body, marginRight: 8 },
+  badge: { backgroundColor: colors.primary, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: colors.white, fontFamily: font.displayBold, fontSize: 11 },
+  empty: { alignItems: 'center', marginTop: 40, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontFamily: font.displayBold, fontSize: 17, color: colors.ink, marginTop: 6 },
+  emptyText: { fontSize: 14, color: colors.muted, fontFamily: font.body, textAlign: 'center' },
+  emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.primary, borderRadius: 18, paddingHorizontal: 20, paddingVertical: 12, marginTop: 14, ...shadow.cta },
+  emptyCtaText: { color: colors.white, fontFamily: font.bodyBold, fontSize: 15 },
+  mapBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 18, marginBottom: 16, backgroundColor: colors.primary, borderRadius: 18, padding: 14, ...shadow.cta },
+  mapBannerIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  mapBannerTitle: { fontFamily: font.bodyBold, fontSize: 15, color: colors.white },
+  mapBannerSub: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontFamily: font.body, marginTop: 2 },
 });
+

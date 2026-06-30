@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '../../api/client';
 import { API_BASE } from '../../config';
+import GroupLocationPrivacyFields from '../../components/sf/GroupLocationPrivacyFields';
 
 const GREEN = '#2D6A4F';
 const GREEN_XL = '#D8F3DC';
@@ -25,6 +26,7 @@ export default function EditGroupScreen({ route, navigation }) {
   const [description, setDescription] = useState('');
   const [imageUri, setImageUri] = useState(null); // local picked URI
   const [existingImageUrl, setExistingImageUrl] = useState(null);
+  const [loc, setLoc] = useState({ isPrivate: false, latitude: null, longitude: null, locationName: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -35,6 +37,7 @@ export default function EditGroupScreen({ route, navigation }) {
         setName(data.name || '');
         setDescription(data.description || '');
         setExistingImageUrl(resolveUri(data.imageUrl));
+        setLoc({ isPrivate: !!data.isPrivate, latitude: data.latitude ?? null, longitude: data.longitude ?? null, locationName: data.locationName || '' });
       })
       .catch(() => Alert.alert('Hata', 'Grup bilgileri yüklenemedi.'))
       .finally(() => setLoading(false));
@@ -72,6 +75,12 @@ export default function EditGroupScreen({ route, navigation }) {
         const ext = filename.split('.').pop() || 'jpg';
         formData.append('image', { uri: imageUri, name: filename, type: `image/${ext}` });
       }
+      formData.append('isPrivate', loc.isPrivate ? 'true' : 'false');
+      if (loc.latitude != null && loc.longitude != null) {
+        formData.append('latitude', String(loc.latitude));
+        formData.append('longitude', String(loc.longitude));
+      }
+      formData.append('locationName', (loc.locationName || '').trim());
 
       await api.patchForm(`/api/groups/${groupId}`, formData);
 
@@ -138,6 +147,8 @@ export default function EditGroupScreen({ route, navigation }) {
         textAlignVertical="top"
       />
       <Text style={styles.charCount}>{description.length}/300</Text>
+
+      <GroupLocationPrivacyFields value={loc} onChange={(pp) => setLoc((s) => ({ ...s, ...pp }))} />
 
       {/* Kaydet Butonu */}
       <TouchableOpacity

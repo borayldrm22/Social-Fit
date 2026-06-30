@@ -358,10 +358,42 @@ The app is accompanied by a marketing/dietitian website. Key pages:
 - Blog/article feed (backend + CMS or static; SEO linkage).
 - Health app integration (Apple HealthKit / Google Fit) as optional.
 
-### Roadmap
+### Roadmap (48 görev / 5 faz)
 
-- **Phase 1:** Close Must-Have gaps (phone auth, star points, feed CTA, payments, push, KVKK consent).
-- **Phase 2:** Should-Have (realtime chat, group challenges, blog, health sync).
+**Faz 1 — Çekirdek Geliştirme** (şu an aktif, **2/10**)
+- ✅ Onboarding akışı  ·  ✅ Onboarding tekrar gösterim fix
+- ⏳ Yemek günlüğü (backend + mobile) · Yıldız puan ekonomisi · Liderlik tablosu · Step2→Step3 kalori parseFloat bug · Grup challenge · SQLite→PostgreSQL · Polling→Socket.io
+
+**Faz 2 — Monetizasyon & Altyapı** (4-8 hafta, 0/8)
+- Iyzico ödeme · Premium abonelik (ilk ay ücretsiz) · FCM push · Firebase OTP telefon girişi · Haftalık paylaşım kartı · Blog CMS (Strapi/Contentful) · Rate limiting · İçerik moderasyonu
+
+**Faz 3 — Mağaza Hazırlığı** (8-12 hafta, 0/12)
+- Apple Developer ($99/yıl) + Google Play ($25) · App icon + splash · Store screenshot'ları · TR+EN açıklama · Preview video · KVKK + kullanım koşulları · TestFlight beta · Sentry/Crashlytics · App Review
+
+**Faz 4 — Launch Öncesi Pazarlama** (10-14 hafta, 0/8)
+- Landing page + waitlist · @SosyalFit sosyal medya hesapları · İlk 10 blog yazısı · Influencer listesi · Beta kullanıcı görüşmeleri · Rakip analizi · Fiyat kararı
+
+**Faz 5 — Launch & Büyüme** (launch sonrası, 0/10)
+- Soft launch (davet kodlu) · Influencer işbirlikleri · Google App Campaigns + Apple Search Ads · Aylık ödül · Diyetisyen partnerlikleri · D1/D7/D30 retention · ASO · Yorum kampanyası · HealthKit/Google Fit
+
+Detaylı görev listesi ve sahiplik: `.claude/skills/social-fit-domain/SKILL.md`.
+
+### Onboarding Modeli — Curiosity Hook
+
+Akış: **İlgi → Empati → Motivasyon → Hedef → Profil → İlerleme → Kimlik → Kanal → Taahhüt → İlk mikro-görev → Sonuç**.
+
+Kurallar: tek soru/tek ekran, her ekranda progress bar, büyük seçim butonları, **sonuç ekranı kişisel değer üretmeli** (günlük kalori hedefi, hedef süresi gibi). Toplam 10-12 ekran ideal. Mevcut implementasyon: `mobile/src/screens/onboarding/`.
+
+Detaylı adım adım soru seti: `.claude/skills/social-fit-domain/SKILL.md`.
+
+### Claude Code Çoklu Ajan Sistemi
+
+Proje `.claude/` altında 3 subagent + 6 skill ile çalışacak şekilde yapılandırıldı:
+- `feature-spec` — TR feature isteğini spec'e çevirir
+- `ui-designer` — mobile ekran tasarımı/redesign
+- `backend-ui-bridge` — API kontratını mobile ↔ backend tutarlı tutar
+
+Mimari detay: `.claude/ARCHITECTURE.md`. Otomatik yüklenen proje memory: `CLAUDE.md`.
 
 ---
 

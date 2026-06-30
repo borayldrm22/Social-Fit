@@ -25,6 +25,7 @@ export function useApi() {
       post: (path, body) => apiRequest(path, { method: 'POST', body: JSON.stringify(body) }, token),
       patch: (path, body) => apiRequest(path, { method: 'PATCH', body: JSON.stringify(body) }, token),
       delete: (path) => apiRequest(path, { method: 'DELETE' }, token),
+      postForm: (path, formData) => uploadFormData(path, formData, token, 'POST'),
       patchForm: (path, formData) => uploadFormData(path, formData, token, 'PATCH'),
     }),
     [token]

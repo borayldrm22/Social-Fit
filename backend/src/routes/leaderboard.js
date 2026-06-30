@@ -110,8 +110,7 @@ router.get('/', async (req, res, next) => {
     const [usersWithProfile, streakRecords] = await Promise.all([
       prisma.user.findMany({
         where: { id: { in: userIdsToFetch } },
-        include: { profile: { select: { displayName: true, avatarUrl: true } } },
-        select: { id: true, profile: true },
+        select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } },
       }),
       prisma.streak.findMany({
         where: { userId: { in: userIdsToFetch } },

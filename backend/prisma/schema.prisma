@@ -51,6 +51,7 @@ model Profile {
   onboardingCompleted  Boolean   @default(false) @map("onboarding_completed")
   goal                 String?   // lose_weight | gain_muscle | eat_healthy | stay_active
   age                  Int?
+  gender               String?
   onboardingData       String?   @map("onboarding_data") // JSON string (SQLite)
   kvkkConsentAt        DateTime? @map("kvkk_consent_at")
   isPublic             Boolean   @default(true) @map("is_public")
@@ -119,12 +120,26 @@ model Group {
   name        String
   description String?
   imageUrl    String?  @map("image_url")
+  latitude    Float?
+  longitude   Float?
+  locationName String?  @map("location_name")
+  isPrivate   Boolean  @default(false) @map("is_private")
   createdBy   String   @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   members GroupMember[]
   posts   Post[]
+}
+
+model GroupJoinRequest {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  groupId   String   @map("group_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, groupId])
+  @@map("group_join_requests")
 }
 
 model GroupMember {
@@ -276,4 +291,28 @@ model FoodLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("food_logs")
+}
+
+model Recipe {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  category    String
+  tags        String   @default("[]")
+  timeMinutes Int      @map("time_minutes")
+  calories    Int
+  protein     Float
+  carbs       Float
+  fat         Float
+  servings    Int      @default(1)
+  difficulty  String   @default("Kolay")
+  imageUrl    String?  @map("image_url")
+  ingredients String
+  steps       String
+  fitNote     String?  @map("fit_note")
+  fullText    String?  @map("full_text")
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("recipes")
 }

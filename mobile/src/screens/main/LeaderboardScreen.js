@@ -1,566 +1,183 @@
-import React, { useState, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  TouchableOpacity,
-  Animated,
-  Dimensions,
-} from 'react-native';
-import { useApi } from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
+// LeaderboardScreen.js — SocialFit redesign · Liderlik tablosu
+// Konum: src/screens/main/LeaderboardScreen.js
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
+import { useApi } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { API_BASE } from '../../config';
+import { colors, font, shadow, avatarColor, getInitials } from '../../theme/socialFitTheme';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const PERIODS = [['week', 'Haftalık'], ['month', 'Aylık'], ['all', 'Tüm Zamanlar']];
+const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
-const PERIODS = [
-  { key: 'week',  label: 'Haftalık',  icon: '📅' },
-  { key: 'month', label: 'Aylık',     icon: '🗓️' },
-  { key: 'all',   label: 'Tüm Zamanlar', icon: '🏛️' },
-];
-
-const GREEN        = '#2D6A4F';
-const GREEN_DARK   = '#1B4332';
-const GREEN_MID    = '#40916C';
-const GREEN_XL     = '#D8F3DC';
-const GOLD         = '#F59E0B';
-const GOLD_L       = '#FEF3C7';
-const SILVER       = '#94A3B8';
-const SILVER_L     = '#F1F5F9';
-const BRONZE       = '#CD7F32';
-const BRONZE_L     = '#FEF0E6';
-const ORANGE       = '#F4845F';
-const ORANGE_L     = '#FDDDD5';
-
-function getInitials(name) {
-  if (!name?.trim()) return '?';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.trim().slice(0, 2).toUpperCase();
-}
-
-function getPointsForPeriod(item, period) {
-  if (period === 'week')  return item.weekPoints  ?? 0;
-  if (period === 'month') return item.monthPoints ?? 0;
-  return item.allTimePoints ?? item.totalPoints ?? 0;
-}
-
-const MOCK_DATA = {
-  myRank: 5,
-  myPoints: 340,
-  leaderboard: [
-    { userId: 'm1', rank: 1, displayName: 'Ayşe Kaya',      avatarUrl: null, weekPoints: 980, monthPoints: 3800, allTimePoints: 12400, currentStreak: 21 },
-    { userId: 'm2', rank: 2, displayName: 'Mehmet Demir',   avatarUrl: null, weekPoints: 870, monthPoints: 3400, allTimePoints: 10900, currentStreak: 14 },
-    { userId: 'm3', rank: 3, displayName: 'Zeynep Arslan',  avatarUrl: null, weekPoints: 760, monthPoints: 2900, allTimePoints: 9300,  currentStreak: 9  },
-    { userId: 'm4', rank: 4, displayName: 'Can Yılmaz',     avatarUrl: null, weekPoints: 640, monthPoints: 2500, allTimePoints: 8100,  currentStreak: 6  },
-    { userId: 'm5', rank: 5, displayName: 'Sen',            avatarUrl: null, weekPoints: 340, monthPoints: 1200, allTimePoints: 4200,  currentStreak: 4  },
-    { userId: 'm6', rank: 6, displayName: 'Elif Şahin',     avatarUrl: null, weekPoints: 290, monthPoints: 1050, allTimePoints: 3800,  currentStreak: 3  },
-    { userId: 'm7', rank: 7, displayName: 'Burak Çelik',    avatarUrl: null, weekPoints: 230, monthPoints: 890,  allTimePoints: 3100,  currentStreak: 2  },
-    { userId: 'm8', rank: 8, displayName: 'Selin Aydın',    avatarUrl: null, weekPoints: 180, monthPoints: 720,  allTimePoints: 2600,  currentStreak: 1  },
-    { userId: 'm9', rank: 9, displayName: 'Emre Koç',       avatarUrl: null, weekPoints: 120, monthPoints: 540,  allTimePoints: 1900,  currentStreak: 0  },
-    { userId: 'm10',rank:10, displayName: 'Nur Öztürk',     avatarUrl: null, weekPoints: 80,  monthPoints: 310,  allTimePoints: 1100,  currentStreak: 0  },
-  ],
+const PODIUM_STYLE = {
+  1: { h: 92, podium: ['#FBC14E', colors.amber], ring: colors.amber, crown: true, size: 70 },
+  2: { h: 64, podium: ['#D7DEE6', '#C2CBD6'], ring: '#C7D7C9', size: 56 },
+  3: { h: 50, podium: ['#E0A06A', '#CD7F32'], ring: '#E8C9A0', size: 56 },
 };
 
-const RANK_CONFIG = {
-  1: { medal: '🥇', color: GOLD,   light: GOLD_L,   label: '1.',  size: 72 },
-  2: { medal: '🥈', color: SILVER, light: SILVER_L, label: '2.',  size: 60 },
-  3: { medal: '🥉', color: BRONZE, light: BRONZE_L, label: '3.',  size: 56 },
-};
+function resolveUri(url) {
+  if (!url) return null;
+  return url.startsWith('http') ? url : `${API_BASE}${url}`;
+}
+function isReal(userId) {
+  return userId && !String(userId).startsWith('example');
+}
 
-function Avatar({ url, name, size, borderColor }) {
-  const initials = getInitials(name);
-  if (url) {
-    return (
-      <Image
-        source={{ uri: url }}
-        style={[styles.avatarImg, { width: size, height: size, borderRadius: size / 2, borderColor }]}
-      />
-    );
+function Avatar({ name, uri, color, size = 56, ring, radius }) {
+  const br = radius != null ? radius : size / 2;
+  if (uri) {
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: br, borderWidth: ring ? 3 : 0, borderColor: ring || 'transparent' }} />;
   }
   return (
-    <View style={[
-      styles.avatarFallback,
-      { width: size, height: size, borderRadius: size / 2, borderColor, backgroundColor: borderColor + '33' }
-    ]}>
-      <Text style={[styles.avatarInitials, { fontSize: size * 0.36, color: borderColor }]}>{initials}</Text>
+    <View style={{ width: size, height: size, borderRadius: br, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: ring ? 3 : 0, borderColor: ring || 'transparent' }}>
+      <Text style={{ color: colors.white, fontFamily: font.displayBold, fontSize: size * 0.32 }}>{getInitials(name)}</Text>
     </View>
-  );
-}
-
-function PodiumPillar({ item, rank, period, onPress }) {
-  const cfg = RANK_CONFIG[rank];
-  const pts = getPointsForPeriod(item, period);
-  const pillarHeights = { 1: 100, 2: 72, 3: 56 };
-  const marginTops    = { 1: 0,   2: 28, 3: 44 };
-
-  return (
-    <TouchableOpacity
-      style={[styles.podiumCol, { marginTop: marginTops[rank] }]}
-      onPress={() => onPress?.(item)}
-      activeOpacity={0.85}
-    >
-      <Text style={styles.podiumMedalEmoji}>{cfg.medal}</Text>
-
-      <View style={styles.podiumAvatarWrap}>
-        <Avatar
-          url={item.avatarUrl}
-          name={item.displayName}
-          size={cfg.size}
-          borderColor={cfg.color}
-        />
-        {rank === 1 && (
-          <View style={styles.crownWrap}>
-            <Text style={styles.crownEmoji}>👑</Text>
-          </View>
-        )}
-      </View>
-
-      <Text style={styles.podiumName} numberOfLines={1}>
-        {item.displayName || 'Kullanıcı'}
-      </Text>
-
-      {rank === 1 && item.currentStreak > 0 && (
-        <View style={styles.streakPill}>
-          <Text style={styles.streakPillText}>🔥 {item.currentStreak} gün</Text>
-        </View>
-      )}
-
-      <View style={[styles.podiumPtsBadge, { backgroundColor: cfg.light }]}>
-        <Text style={[styles.podiumPtsText, { color: cfg.color }]}>{pts}</Text>
-        <Text style={[styles.podiumPtsLabel, { color: cfg.color + 'AA' }]}>puan</Text>
-      </View>
-
-      <View style={[styles.podiumBase, { height: pillarHeights[rank], backgroundColor: cfg.color + '22', borderTopColor: cfg.color }]}>
-        <Text style={[styles.podiumRankLabel, { color: cfg.color }]}>{cfg.label}</Text>
-      </View>
-    </TouchableOpacity>
   );
 }
 
 export default function LeaderboardScreen({ navigation }) {
   const api = useApi();
   const { user } = useAuth();
-  const [period, setPeriod]     = useState('week');
-  const [data, setData]         = useState({ leaderboard: [], myRank: null, myPoints: 0 });
-  const [streak, setStreak]     = useState({ currentStreak: 0, starPoints: 0, badges: [] });
-  const [loading, setLoading]   = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const tabAnim = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+  const [period, setPeriod] = useState('month');
+  const [data, setData] = useState({ top: [], rest: [], me: null });
+  const [loading, setLoading] = useState(true);
 
-  const loadLeaderboard = useCallback(async (p) => {
-    try {
-      const res = await api.get(`/api/leaderboard?period=${p || period}`);
-      const list = res.leaderboard || [];
-      setData(list.length > 0 ? res : MOCK_DATA);
-    } catch {
-      setData(MOCK_DATA);
-    }
-  }, [api, period]);
-
-  const loadStreak = useCallback(async () => {
-    try {
-      const res = await api.get('/api/streaks/me');
-      setStreak({ currentStreak: res.currentStreak ?? 4, starPoints: res.starPoints ?? 340, badges: res.badges ?? [] });
-    } catch {
-      setStreak({ currentStreak: 4, starPoints: 340, badges: [{ id: 'streak7' }] });
-    }
-  }, [api]);
-
-  const load = useCallback(async (p = period) => {
+  const load = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadLeaderboard(p), loadStreak()]);
-    setLoading(false);
-  }, [loadLeaderboard, loadStreak, period]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load(period);
-    setRefreshing(false);
-  }, [load, period]);
-
+    try {
+      const res = await api.get(`/api/leaderboard?period=${period}`);
+      const list = Array.isArray(res?.leaderboard) ? res.leaderboard : [];
+      const toRow = (e) => ({ rank: e.rank, userId: e.userId, name: e.displayName || 'Kullanıcı', avatarUrl: e.avatarUrl, pts: e.totalPoints ?? 0, streak: e.currentStreak ?? 0 });
+      const byRank = Object.fromEntries(list.map((e) => [e.rank, toRow(e)]));
+      const top = [byRank[2], byRank[1], byRank[3]].filter(Boolean);
+      const rest = list.filter((e) => e.rank >= 4).map(toRow);
+      const me = res.myRank ? { rank: res.myRank, name: user?.profile?.displayName || 'Sen', avatarUrl: user?.profile?.avatarUrl, pts: res.myPoints ?? 0 } : null;
+      setData({ top, rest, me });
+    } catch (e) {
+      setData({ top: [], rest: [], me: null });
+    } finally {
+      setLoading(false);
+    }
+  }, [api, period, user]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onPeriodChange = useCallback((p, idx) => {
-    setPeriod(p);
-    load(p);
-    Animated.spring(tabAnim, { toValue: idx, useNativeDriver: false, tension: 80, friction: 10 }).start();
-  }, [load, tabAnim]);
-
-  const openChat = useCallback((item) => {
-    const parent = navigation.getParent?.();
-    if (parent) {
-      parent.navigate('Messages', {
-        screen: 'Chat',
-        params: { userId: item.userId, displayName: item.displayName || 'Kullanıcı', avatarUrl: item.avatarUrl ?? null },
-      });
-    }
-  }, [navigation]);
-
-  const profile = user?.profile || {};
-  const list    = data.leaderboard || [];
-  const top3    = list.slice(0, 3);
-  const rest    = list.slice(3);
-
-  const tabW    = (SCREEN_W - 32) / PERIODS.length;
-  const tabLeft = tabAnim.interpolate({ inputRange: [0, 1, 2], outputRange: [0, tabW, tabW * 2] });
-
-  const myIdx = PERIODS.findIndex((p) => p.key === period);
+  const openUser = (userId) => {
+    if (!isReal(userId)) return;
+    navigation.getParent()?.navigate('Feed', { screen: 'UserProfile', params: { userId } });
+  };
 
   return (
-    <View style={styles.root}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Gradient Hero ── */}
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_MID]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          {/* Başlık + Avatar */}
-          <View style={styles.heroTop}>
-            <View>
-              <Text style={styles.heroTitle}>Lider Tablosu</Text>
-              <Text style={styles.heroSub}>En aktif olmak için yarış! 🏆</Text>
-            </View>
-            {profile.avatarUrl ? (
-              <Image source={{ uri: profile.avatarUrl }} style={styles.heroAvatar} />
-            ) : (
-              <View style={[styles.heroAvatar, styles.heroAvatarFallback]}>
-                <Text style={styles.heroAvatarText}>
-                  {(profile.displayName || '?').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
+    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 28, paddingTop: insets.top }}>
+      <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={10}>
+            <Ionicons name="chevron-back" size={24} color={colors.ink} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Liderlik 🏆</Text>
+        </View>
+        <View style={styles.monthPill}><Text style={styles.monthText}>{MONTHS[new Date().getMonth()]}</Text></View>
+      </View>
+
+      <View style={styles.segment}>
+        {PERIODS.map(([k, label]) => (
+          <TouchableOpacity key={k} style={[styles.segItem, period === k && styles.segActive]} onPress={() => setPeriod(k)}>
+            <Text style={[styles.segText, { color: period === k ? colors.ink : '#8A988E' }]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <ActivityIndicator color={colors.primary} size="large" style={{ marginTop: 50 }} />
+      ) : data.top.length === 0 && data.rest.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={{ fontSize: 40 }}>🏆</Text>
+          <Text style={styles.emptyText}>Henüz sıralama verisi yok</Text>
+        </View>
+      ) : (
+        <>
+          {/* Podyum */}
+          <View style={styles.podium}>
+            {data.top.map((t) => {
+              const ps = PODIUM_STYLE[t.rank] || PODIUM_STYLE[3];
+              return (
+                <TouchableOpacity key={t.rank} style={{ flex: 1, alignItems: 'center' }} activeOpacity={isReal(t.userId) ? 0.7 : 1} onPress={() => openUser(t.userId)}>
+                  {ps.crown ? <Ionicons name="trophy" size={26} color={colors.amber} style={{ marginBottom: 2 }} /> : null}
+                  <Avatar name={t.name} uri={resolveUri(t.avatarUrl)} color={avatarColor(t.name)} size={ps.size} ring={ps.ring} />
+                  <Text style={[styles.pName, ps.crown && { fontSize: 14 }]} numberOfLines={1}>{t.name}</Text>
+                  <Text style={[styles.pPts, ps.crown && { color: colors.amberDark, fontSize: 17 }]}>{t.pts.toLocaleString('tr-TR')}</Text>
+                  <LinearGradient colors={ps.podium} style={[styles.bar, { height: ps.h }]}>
+                    <Text style={styles.barNum}>{t.rank}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
-          {/* 3 stat kutusu */}
-          <View style={styles.statRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statIcon}>⭐</Text>
-              <Text style={styles.statVal}>{streak.starPoints}</Text>
-              <Text style={styles.statLbl}>Puanım</Text>
-            </View>
-            <View style={[styles.statBox, styles.statBoxCenter]}>
-              <Text style={styles.statIcon}>🔥</Text>
-              <Text style={styles.statVal}>{streak.currentStreak}</Text>
-              <Text style={styles.statLbl}>Streak</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statIcon}>🏅</Text>
-              <Text style={styles.statVal}>{streak.badges?.length ?? 0}</Text>
-              <Text style={styles.statLbl}>Rozet</Text>
-            </View>
+          {/* Ödül */}
+          <View style={styles.prize}>
+            <Text style={{ fontSize: 22 }}>🎁</Text>
+            <Text style={styles.prizeText}>Ayın birincisine: <Text style={{ fontFamily: font.bodyBold, color: colors.ink }}>ücretsiz diyet planı + sponsor ürün</Text></Text>
           </View>
 
-          {/* Sıram kartı */}
-          {data.myRank != null && (
-            <View style={styles.myRankRow}>
-              <Ionicons name="podium-outline" size={18} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.myRankLabel}>Sıran:</Text>
-              <Text style={styles.myRankNum}>#{data.myRank}</Text>
-              <View style={styles.myRankDot} />
-              <Text style={styles.myRankPts}>{data.myPoints ?? 0} puan</Text>
-            </View>
-          )}
-        </LinearGradient>
-
-        {/* ── Dönem Seçici Tab ── */}
-        <View style={styles.tabBarWrap}>
-          <View style={styles.tabBar}>
-            <Animated.View style={[styles.tabIndicator, { width: tabW, left: tabLeft }]} />
-            {PERIODS.map((p, idx) => (
-              <TouchableOpacity
-                key={p.key}
-                style={[styles.tab, { width: tabW }]}
-                onPress={() => onPeriodChange(p.key, idx)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.tabIcon}>{p.icon}</Text>
-                <Text style={[styles.tabText, period === p.key && styles.tabTextActive]}>
-                  {p.label}
-                </Text>
+          {/* Liste */}
+          <View style={{ marginHorizontal: 12, marginTop: 14, gap: 8 }}>
+            {data.rest.map((r) => (
+              <TouchableOpacity key={r.rank} style={styles.row} activeOpacity={isReal(r.userId) ? 0.7 : 1} onPress={() => openUser(r.userId)}>
+                <Text style={styles.rank}>{r.rank}</Text>
+                <Avatar name={r.name} uri={resolveUri(r.avatarUrl)} color={avatarColor(r.name)} size={40} radius={14} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowName} numberOfLines={1}>{r.name}</Text>
+                  {r.streak > 0 ? <Text style={styles.rowStreak}>🔥 {r.streak} gün</Text> : null}
+                </View>
+                <Text style={styles.rowPts}>{r.pts.toLocaleString('tr-TR')}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
-
-        {loading && list.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>Yükleniyor...</Text>
-          </View>
-        ) : list.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="trophy-outline" size={52} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>Henüz veri yok</Text>
-            <Text style={styles.emptyText}>Bu dönem için puan kaydı bulunamadı.</Text>
-          </View>
-        ) : (
-          <>
-            {/* ── Podyum ── */}
-            <View style={styles.podiumSection}>
-              <View style={styles.podiumWrap}>
-                {/* 2. */}
-                {top3[1] && <PodiumPillar item={top3[1]} rank={2} period={period} onPress={openChat} />}
-                {/* 1. */}
-                {top3[0] && <PodiumPillar item={top3[0]} rank={1} period={period} onPress={openChat} />}
-                {/* 3. */}
-                {top3[2] && <PodiumPillar item={top3[2]} rank={3} period={period} onPress={openChat} />}
+            {data.me ? (
+              <View style={[styles.row, styles.meRow]}>
+                <Text style={[styles.rank, { color: '#A9E0C2' }]}>{data.me.rank}</Text>
+                <Avatar name={data.me.name} uri={resolveUri(data.me.avatarUrl)} color={avatarColor(data.me.name)} size={40} radius={14} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowName, { color: colors.white }]} numberOfLines={1}>{data.me.name} <Text style={{ color: '#A9E0C2' }}>(Sen)</Text></Text>
+                </View>
+                <Text style={[styles.rowPts, { color: colors.white }]}>{data.me.pts.toLocaleString('tr-TR')}</Text>
               </View>
-            </View>
-
-            {/* ── 4.+ Liste ── */}
-            {rest.length > 0 && (
-              <View style={styles.listSection}>
-                <Text style={styles.listTitle}>Diğer Sıralamalar</Text>
-                {rest.map((item, i) => {
-                  const pts    = getPointsForPeriod(item, period);
-                  const maxPts = getPointsForPeriod(list[0], period) || 1;
-                  const pct    = Math.max(4, Math.round((pts / maxPts) * 100));
-                  const isSelf = item.userId === user?.id || item.userId === 'm5';
-
-                  return (
-                    <View
-                      key={item.userId}
-                      style={[styles.leaderRow, isSelf && styles.leaderRowSelf]}
-                    >
-                      {/* Sıra */}
-                      <View style={styles.rankNumWrap}>
-                        <Text style={[styles.rankNum, isSelf && styles.rankNumSelf]}>
-                          {item.rank}
-                        </Text>
-                      </View>
-
-                      {/* Avatar */}
-                      <Avatar
-                        url={item.avatarUrl}
-                        name={item.displayName}
-                        size={44}
-                        borderColor={isSelf ? GREEN : '#E5E7EB'}
-                      />
-
-                      {/* İsim + Bar */}
-                      <View style={styles.leaderInfo}>
-                        <View style={styles.leaderTopRow}>
-                          <Text style={[styles.leaderName, isSelf && styles.leaderNameSelf]} numberOfLines={1}>
-                            {item.displayName || 'Kullanıcı'}
-                            {isSelf ? ' (Sen)' : ''}
-                          </Text>
-                          {item.currentStreak > 0 && (
-                            <View style={styles.streakBadge}>
-                              <Text style={styles.streakBadgeText}>🔥 {item.currentStreak}</Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.barTrack}>
-                          <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: isSelf ? GREEN : GREEN_XL }]} />
-                        </View>
-                      </View>
-
-                      {/* Puan */}
-                      <View style={styles.ptsWrap}>
-                        <Text style={[styles.ptsVal, isSelf && styles.ptsValSelf]}>{pts}</Text>
-                        <Text style={styles.ptsLbl}>puan</Text>
-                      </View>
-
-                      {/* Meydan oku */}
-                      {!isSelf && (
-                        <TouchableOpacity
-                          style={styles.challengeBtn}
-                          onPress={() => openChat(item)}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="flash-outline" size={14} color={ORANGE} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
+            ) : null}
+          </View>
+        </>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F7FAF8' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 24 },
-
-  // ── Hero ──────────────────────────────────────────────────
-  hero: {
-    paddingTop: 52, paddingBottom: 28,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
-  },
-  heroTop: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    marginBottom: 22,
-  },
-  heroTitle: { fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
-  heroSub:   { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
-  heroAvatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.4)' },
-  heroAvatarFallback: { backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  heroAvatarText: { fontSize: 20, fontWeight: '700', color: '#fff' },
-
-  // Stat kutuları
-  statRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  statBox: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 16, paddingVertical: 14, alignItems: 'center',
-  },
-  statBoxCenter: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  statIcon: { fontSize: 22, marginBottom: 4 },
-  statVal:  { fontSize: 22, fontWeight: '900', color: '#fff' },
-  statLbl:  { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
-
-  // Sıram satırı
-  myRankRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 14, paddingVertical: 11, paddingHorizontal: 16,
-  },
-  myRankLabel: { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
-  myRankNum:   { fontSize: 18, fontWeight: '900', color: '#fff' },
-  myRankDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)' },
-  myRankPts:   { fontSize: 14, color: 'rgba(255,255,255,0.75)' },
-
-  // ── Tab Bar ───────────────────────────────────────────────
-  tabBarWrap: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 4 },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16, height: 48,
-    position: 'relative', overflow: 'hidden',
-  },
-  tabIndicator: {
-    position: 'absolute', top: 4, bottom: 4,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
-  },
-  tab: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, zIndex: 1,
-  },
-  tabIcon: { fontSize: 14 },
-  tabText: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
-  tabTextActive: { color: GREEN, fontWeight: '700' },
-
-  // ── Podyum ────────────────────────────────────────────────
-  podiumSection: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  podiumWrap: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
-    gap: 8,
-    backgroundColor: '#fff',
-    borderRadius: 24, paddingTop: 24, paddingBottom: 0,
-    paddingHorizontal: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 10, elevation: 2,
-    overflow: 'hidden',
-  },
-  podiumCol: { flex: 1, alignItems: 'center' },
-  podiumMedalEmoji: { fontSize: 26, marginBottom: 6 },
-
-  podiumAvatarWrap: { position: 'relative', marginBottom: 8 },
-  avatarImg: { borderWidth: 3 },
-  avatarFallback: {
-    borderWidth: 3,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  avatarInitials: { fontWeight: '800' },
-  crownWrap: {
-    position: 'absolute', top: -18, left: 0, right: 0,
-    alignItems: 'center',
-  },
-  crownEmoji: { fontSize: 22 },
-
-  podiumName: { fontSize: 12, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 4, paddingHorizontal: 4 },
-  streakPill: {
-    backgroundColor: ORANGE_L, paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 10, marginBottom: 6,
-  },
-  streakPillText: { fontSize: 11, color: ORANGE, fontWeight: '700' },
-  podiumPtsBadge: {
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 10, marginBottom: 10, alignItems: 'center',
-  },
-  podiumPtsText: { fontSize: 16, fontWeight: '900' },
-  podiumPtsLabel: { fontSize: 10, fontWeight: '600', marginTop: 1 },
-
-  podiumBase: {
-    width: '100%', alignItems: 'center', justifyContent: 'center',
-    borderTopWidth: 2,
-  },
-  podiumRankLabel: { fontSize: 15, fontWeight: '900', paddingTop: 8, paddingBottom: 6 },
-
-  // ── Sıralama Listesi ──────────────────────────────────────
-  listSection: { paddingHorizontal: 16, paddingTop: 16 },
-  listTitle: {
-    fontSize: 14, fontWeight: '700', color: '#6B7280',
-    textTransform: 'uppercase', letterSpacing: 0.6,
-    marginBottom: 12, marginLeft: 2,
-  },
-
-  leaderRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14,
-    marginBottom: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
-  },
-  leaderRowSelf: {
-    backgroundColor: GREEN_XL,
-    borderWidth: 1.5, borderColor: GREEN,
-  },
-
-  rankNumWrap: { width: 28, alignItems: 'center' },
-  rankNum: { fontSize: 14, fontWeight: '700', color: '#9CA3AF' },
-  rankNumSelf: { color: GREEN },
-
-  leaderInfo: { flex: 1, marginLeft: 10 },
-  leaderTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  leaderName: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
-  leaderNameSelf: { color: GREEN_DARK, fontWeight: '700' },
-  streakBadge: {
-    backgroundColor: GOLD_L, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
-  },
-  streakBadgeText: { fontSize: 11, color: '#B45309', fontWeight: '700' },
-
-  barTrack: { height: 5, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
-  barFill:  { height: '100%', borderRadius: 4 },
-
-  ptsWrap: { alignItems: 'flex-end', marginLeft: 10 },
-  ptsVal:  { fontSize: 16, fontWeight: '900', color: '#374151' },
-  ptsValSelf: { color: GREEN },
-  ptsLbl:  { fontSize: 10, color: '#9CA3AF' },
-
-  challengeBtn: {
-    width: 32, height: 32, borderRadius: 10,
-    backgroundColor: ORANGE_L,
-    justifyContent: 'center', alignItems: 'center',
-    marginLeft: 8,
-  },
-
-  // ── Boş ──────────────────────────────────────────────────
-  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151' },
-  emptyText:  { fontSize: 14, color: '#9CA3AF' },
+  screen: { flex: 1, backgroundColor: colors.bg },
+  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontFamily: font.displayBold, fontSize: 22, color: colors.ink, letterSpacing: -0.3 },
+  monthPill: { backgroundColor: colors.mint, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 13 },
+  monthText: { fontSize: 13, color: colors.primary, fontFamily: font.bodyBold },
+  segment: { marginHorizontal: 16, backgroundColor: '#E9EFE9', borderRadius: 14, padding: 4, flexDirection: 'row' },
+  segItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
+  segActive: { backgroundColor: colors.surface, ...shadow.soft },
+  segText: { fontFamily: font.bodyBold, fontSize: 13 },
+  podium: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginHorizontal: 16, marginTop: 18 },
+  pName: { fontFamily: font.bodyBold, fontSize: 13, color: colors.ink, marginTop: 7 },
+  pPts: { fontFamily: font.displayBold, fontSize: 15, color: colors.muted },
+  bar: { width: '100%', borderTopLeftRadius: 14, borderTopRightRadius: 14, marginTop: 8, alignItems: 'center', paddingTop: 10 },
+  barNum: { fontFamily: font.displayBold, fontSize: 24, color: colors.white },
+  prize: { flexDirection: 'row', alignItems: 'center', gap: 11, marginHorizontal: 16, marginTop: 14, backgroundColor: colors.amberTint, borderWidth: 1, borderColor: '#FBE6BC', borderRadius: 16, padding: 12 },
+  prizeText: { flex: 1, fontSize: 12, color: '#9A7420', fontFamily: font.body, lineHeight: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, ...shadow.soft, paddingVertical: 10, paddingHorizontal: 10 },
+  rank: { fontFamily: font.displayBold, fontSize: 15, color: colors.faint, width: 20, textAlign: 'center' },
+  rowName: { fontFamily: font.bodyBold, fontSize: 14, color: colors.ink },
+  rowStreak: { fontSize: 11, color: colors.coralDark, fontFamily: font.bodyBold, marginTop: 2 },
+  rowPts: { fontFamily: font.displayBold, fontSize: 15, color: colors.muted },
+  meRow: { backgroundColor: colors.primary, ...shadow.cta },
+  empty: { alignItems: 'center', marginTop: 50, gap: 10 },
+  emptyText: { fontSize: 14, color: colors.muted, fontFamily: font.body },
 });

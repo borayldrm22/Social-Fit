@@ -26,6 +26,7 @@ export function buildOnboardingPayload() {
   return {
     goal,
     age: s.age,
+    gender: s.gender,
     weightKg: s.currentWeightKg,
     heightCm: s.heightCm,
     dailyCalorieGoal: s.dailyCalories,
