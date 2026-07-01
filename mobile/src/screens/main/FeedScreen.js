@@ -164,8 +164,6 @@ export default function FeedScreen({ navigation }) {
           <Text style={styles.brand}>Social<Text style={{ color: colors.primary }}>Fit</Text></Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-          <View style={styles.streakPill}><Text style={styles.streakText}>🔥 24</Text></View>
-          <View style={styles.starTop}><Text style={styles.starTopText}>⭐ 1.2k</Text></View>
           <TouchableOpacity style={styles.bell} onPress={() => navigation.navigate('Notifications')}><Ionicons name="notifications-outline" size={18} color="#3C4A42" /><View style={styles.bellDot} /></TouchableOpacity>
           <TouchableOpacity style={styles.bell} onPress={() => navigation.getParent()?.navigate('More')}><Ionicons name="menu" size={22} color="#3C4A42" /></TouchableOpacity>
         </View>

@@ -1,33 +1,58 @@
 // WelcomeScreen.js — SocialFit redesign · Karşılama (auth)
 // Konum: src/screens/auth/WelcomeScreen.js
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+// Logo animasyonlu açılır, ardından "Hesap Oluştur / Giriş Yap" alanı aşağıdan belirir.
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, font, shadow } from '../../theme/socialFitTheme';
 
 export default function WelcomeScreen({ navigation }) {
+  const logoScale = useRef(new Animated.Value(0.7)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
+  const footerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(logoScale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+        Animated.timing(logoOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
+      ]),
+      Animated.timing(contentAnim, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.timing(footerAnim, { toValue: 1, duration: 420, useNativeDriver: true }),
+    ]).start();
+  }, [logoScale, logoOpacity, contentAnim, footerAnim]);
+
+  const contentTranslate = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
+  const footerTranslate = footerAnim.interpolate({ inputRange: [0, 1], outputRange: [26, 0] });
+
   return (
     <LinearGradient colors={['#10402B', colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={styles.screen}>
       <View style={styles.center}>
-        <View style={styles.logo}><Ionicons name="leaf" size={48} color={colors.white} /></View>
-        <Text style={styles.brand}>Social<Text style={{ color: '#A9E0C2' }}>Fit</Text></Text>
-        <Text style={styles.tag}>Birlikte hareket et, birlikte güçlen. Kendinin en iyi versiyonu olmaya hazır mısın?</Text>
-        <View style={styles.pills}>
-          {['🔥 Streak', '🤝 Topluluk', '🥗 Beslenme'].map((p) => (
-            <View key={p} style={styles.pill}><Text style={styles.pillText}>{p}</Text></View>
-          ))}
-        </View>
+        <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }] }}>
+          <View style={styles.logo}><Ionicons name="leaf" size={48} color={colors.white} /></View>
+        </Animated.View>
+
+        <Animated.View style={{ alignItems: 'center', opacity: contentAnim, transform: [{ translateY: contentTranslate }] }}>
+          <Text style={styles.brand}>Social<Text style={{ color: '#A9E0C2' }}>Fit</Text></Text>
+          <Text style={styles.tag}>Birlikte hareket et, birlikte güçlen.</Text>
+          <View style={styles.pills}>
+            {['🔥 Streak', '🤝 Topluluk', '🥗 Beslenme'].map((p) => (
+              <View key={p} style={styles.pill}><Text style={styles.pillText}>{p}</Text></View>
+            ))}
+          </View>
+        </Animated.View>
       </View>
 
-      <View style={styles.footer}>
+      <Animated.View style={[styles.footer, { opacity: footerAnim, transform: [{ translateY: footerTranslate }] }]}>
         <TouchableOpacity style={styles.primary} activeOpacity={0.85} onPress={() => navigation?.navigate?.('Register')}>
           <Text style={styles.primaryText}>Hesap Oluştur</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondary} activeOpacity={0.8} onPress={() => navigation?.navigate?.('Login')}>
           <Text style={styles.secondaryText}>Giriş Yap</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </LinearGradient>
   );
 }

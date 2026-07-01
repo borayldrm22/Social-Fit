@@ -26,7 +26,7 @@ export default function OnboardingWelcome({ navigation }) {
       navigation={navigation}
       routeName="OnboardingWelcome"
       title="Seni tanımak istiyoruz 👋"
-      subtitle="3 dakika içinde sağlıklı yaşam sosyal medyasına adım atacaksın."
+      subtitle="Planını hazırlamak için birkaç kısa soru."
       onNext={handleSubmit(onSubmit)}
       nextLabel="Başlayalım →"
       nextDisabled={!ok}

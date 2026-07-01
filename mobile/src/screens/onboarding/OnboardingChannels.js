@@ -10,14 +10,18 @@ export default function OnboardingChannels({ navigation }) {
   const { c } = useOnboardingTheme();
   const channelChoice = useOnboardingStore((s) => s.channelChoice);
   const setChannelChoice = useOnboardingStore((s) => s.setChannelChoice);
+  const runNutritionPlan = useOnboardingStore((s) => s.runNutritionPlan);
 
   return (
     <OnboardingLayout
       navigation={navigation}
       routeName="OnboardingChannels"
-      title="Uzman ve kullanıcı motivasyon kanallarına hazır mısın?"
-      subtitle="Kanallar sayesinde birçok kullanıcı ile iletişimde ol."
-      onNext={() => navigation.navigate('OnboardingCommitment')}
+      title="Bir kanala katıl"
+      subtitle="İlgi alanına uygun toplulukları takip et."
+      onNext={() => {
+        runNutritionPlan();
+        navigation.navigate('OnboardingResult');
+      }}
       nextDisabled={!channelChoice}
     >
       <OptionButton

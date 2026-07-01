@@ -34,7 +34,7 @@ export default function OnboardingGoals({ navigation }) {
       routeName="OnboardingGoals"
       title="Hedeflerini seçerek başlayalım"
       subtitle="En fazla 3 hedef seç"
-      onNext={() => navigation.navigate('OnboardingMotivation')}
+      onNext={() => navigation.navigate('OnboardingProfile')}
       nextDisabled={goals.length < 1}
     >
       <MultiSelectGrid options={GOAL_OPTIONS} selectedIds={goals} onToggle={onToggle} columns={2} />

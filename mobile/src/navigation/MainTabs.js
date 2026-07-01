@@ -261,7 +261,7 @@ export default function MainTabs() {
             return {};
           }}
         />
-        <Tab.Screen name="Nutrition" component={NutritionStack} options={{ title: 'Beslenme', headerShown: false }} />
+        <Tab.Screen name="Groups" component={GroupsStack} options={{ title: 'Gruplar', headerShown: false }} />
         <Tab.Screen
           name="Create"
           component={CreateStack}
@@ -283,9 +283,9 @@ export default function MainTabs() {
             ),
           }}
         />
-        <Tab.Screen name="Groups" component={GroupsStack} options={{ title: 'Gruplar', headerShown: false }} />
+        <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false }} />
         <Tab.Screen name="Profile" component={ProfileStack} options={{ title: 'Profil', headerShown: false }} />
-        <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false, tabBarButton: () => null }} />
+        <Tab.Screen name="Nutrition" component={NutritionStack} options={{ title: 'Beslenme', headerShown: false, tabBarButton: () => null }} />
         <Tab.Screen name="More" component={MoreStack} options={{ title: 'Daha Fazla', tabBarButton: () => null }} />
       </Tab.Navigator>
 
@@ -325,6 +325,19 @@ export default function MainTabs() {
                 <Ionicons name="camera-outline" size={22} color="#157A52" />
               </View>
               <Text style={fabStyles.menuText}>Gönderi Paylaş</Text>
+            </TouchableOpacity>
+            <View style={fabStyles.divider} />
+            <TouchableOpacity
+              style={fabStyles.menuItem}
+              onPress={() => {
+                setFabMenuVisible(false);
+                navRef.current?.navigate('Nutrition');
+              }}
+            >
+              <View style={[fabStyles.menuIcon, { backgroundColor: '#F59E0B18' }]}>
+                <Ionicons name="restaurant-outline" size={22} color="#F59E0B" />
+              </View>
+              <Text style={fabStyles.menuText}>Beslenme</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
