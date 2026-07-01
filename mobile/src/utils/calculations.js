@@ -86,11 +86,17 @@ export function computeNutritionPlan({
     };
   }
 
-  const wantsLoss = goals?.includes('lose_weight') || (weightGoalKg != null && weightGoalKg > 0 && !maintainWeightGoal);
-  const wantsGain = goals?.includes('gain_muscle');
+  // Niyeti hedeflerden + mevcut/hedef kilodan türet (ayrı "kilo hedefi" ekranı kaldırıldı)
+  const diff = currentWeightKg != null && targetWeightKg != null ? currentWeightKg - targetWeightKg : null;
+  const maintain =
+    maintainWeightGoal ||
+    goals?.includes('maintain') ||
+    (diff != null && Math.abs(diff) < 1);
+  const wantsGain = !maintain && (goals?.includes('gain_muscle') || (diff != null && diff < -0.5));
+  const wantsLoss = !maintain && (goals?.includes('lose_weight') || (diff != null && diff > 0.5) || (weightGoalKg != null && weightGoalKg > 0));
 
   let dailyCalories = tdee;
-  if (maintainWeightGoal) dailyCalories = tdee;
+  if (maintain) dailyCalories = tdee;
   else if (wantsGain) dailyCalories = Math.round(tdee + 250);
   else if (wantsLoss) dailyCalories = Math.max(1200, Math.round(tdee - 500));
   else dailyCalories = Math.round(tdee - 200);

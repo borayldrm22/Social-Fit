@@ -28,7 +28,7 @@ export default function OnboardingChallenge({ navigation }) {
       routeName="OnboardingChallenge"
       title="Sağlığınla ilgili en çok zorlandığın konu nedir?"
       subtitle="Birden fazla seçebilirsin"
-      onNext={() => navigation.navigate('OnboardingWeightGoal')}
+      onNext={() => navigation.navigate('OnboardingChannels')}
       nextDisabled={challenges.length < 1}
     >
       <MultiSelectGrid options={CHALLENGE_OPTIONS} selectedIds={challenges} onToggle={onToggle} columns={1} />

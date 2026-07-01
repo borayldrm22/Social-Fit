@@ -47,22 +47,17 @@ export const IDENTITY_OPTIONS = [
   { id: 'aging', label: 'Daha geç yaşlanmak istiyorum.' },
 ];
 
-export const ONBOARDING_TOTAL_STEPS = 13;
+export const ONBOARDING_TOTAL_STEPS = 8;
 
 export const ONBOARDING_ROUTE_STEP = {
   OnboardingWelcome: 1,
   OnboardingGoals: 2,
-  OnboardingMotivation: 3,
-  OnboardingChallenge: 4,
-  OnboardingWeightGoal: 5,
-  OnboardingTimeline: 6,
-  OnboardingProfile: 7,
-  OnboardingActivity: 8,
-  OnboardingIdentity: 9,
-  OnboardingChannels: 10,
-  OnboardingCommitment: 11,
-  OnboardingResult: 12,
-  OnboardingSocial: 13,
+  OnboardingProfile: 3,
+  OnboardingActivity: 4,
+  OnboardingChallenge: 5,
+  OnboardingChannels: 6,
+  OnboardingResult: 7,
+  OnboardingSocial: 8,
 };
 
 export const DEFAULT_FIRST_SHARE_CAPTION =
