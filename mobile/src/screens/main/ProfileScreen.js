@@ -1,454 +1,247 @@
+// ProfileScreen.js — SocialFit redesign · Profil + Streak + Rozetler (gerçek veri)
+// Konum: src/screens/main/ProfileScreen.js
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  FlatList,
-} from 'react-native';
-import { useAuth } from '../../context/AuthContext';
-import { useApi } from '../../api/client';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Image, Share } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
+import { useApi } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
+import { colors, font, shadow } from '../../theme/socialFitTheme';
+import { Avatar } from '../../components/sf/ui';
 
-const GREEN = '#2D6A4F';
-const GREEN_DARK = '#1B4332';
-const GREEN_XL = '#D8F3DC';
-const ORANGE = '#F4845F';
-const ORANGE_L = '#FDDDD5';
-const GOLD = '#F59E0B';
-const GOLD_L = '#FEF3C7';
+const WEEK_LABELS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
 
-// Badge definitions with emoji and unlock criteria
-const BADGE_DEFS = [
-  { id: 'streak7',   emoji: '🔥', label: '7 Günlük Seri',   unlocked: false },
-  { id: 'streak14',  emoji: '⚡', label: '14 Gün Devam',    unlocked: false },
-  { id: 'streak30',  emoji: '💎', label: '30 Gün Şampiyon', unlocked: false },
-  { id: 'post10',    emoji: '📸', label: '10 Gönderi',      unlocked: false },
-  { id: 'social',    emoji: '🤝', label: 'Sosyal Kelebek',  unlocked: false },
-  { id: 'diet',      emoji: '🥗', label: 'Diyet Ustası',    unlocked: false },
-  { id: 'steps',     emoji: '🚶', label: 'Adım Sayacı',     unlocked: false },
-  { id: 'coach',     emoji: '👩‍⚕️', label: 'Koç Randevusu',  unlocked: false },
-];
-
-// Days of week abbreviated in Turkish
-const WEEK_DAYS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
-
-function avatarUri(profile) {
-  const url = profile?.avatarUrl;
+function resolveUri(url) {
   if (!url) return null;
-  if (url.startsWith('http')) return url;
-  return `${API_BASE}${url}`;
+  return url.startsWith('http') ? url : `${API_BASE}${url}`;
 }
 
-function getInitial(name) {
-  return (name || '?').charAt(0).toUpperCase();
+// /me/calendar.days ({ '5':[...] }) -> bu haftanın 7 günü (Pt..Pz) aktif mi
+function buildWeek(days) {
+  const now = new Date();
+  const dow = now.getDay(); // 0 Paz .. 6 Cmt
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset + i);
+    const isToday = d.toDateString() === now.toDateString();
+    const sameMonth = d.getMonth() === now.getMonth();
+    const active = sameMonth && days && Array.isArray(days[d.getDate()]) && days[d.getDate()].length > 0;
+    out.push({ d: isToday ? 'Bugün' : WEEK_LABELS[i], done: active && !isToday, today: isToday, todayActive: isToday && active });
+  }
+  return out;
 }
 
 export default function ProfileScreen({ navigation }) {
-  const { user, refreshUser, logout } = useAuth();
   const api = useApi();
-
-  const [stats, setStats] = useState({
-    starPoints: 0,
-    postCount: 0,
-    followerCount: 0,
-    followingCount: 0,
-    groupCount: 0,
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [p, setP] = useState({
+    displayName: user?.profile?.displayName || '',
+    avatarUrl: user?.profile?.avatarUrl || null,
+    goalNote: '',
+    stars: 0, streak: 0, posts: 0, followers: 0, following: 0, rank: null,
   });
-  const [streak, setStreak] = useState({ currentStreak: 0, longestStreak: 0, badges: [] });
-  const [posts, setPosts] = useState([]);
+  const [week, setWeek] = useState(buildWeek(null));
+  const [postList, setPostList] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const [meRes, streakRes, postsRes] = await Promise.all([
-        api.get('/api/users/me'),
-        api.get('/api/streaks/me').catch(() => ({ currentStreak: 0, longestStreak: 0, badges: [] })),
-        api.get('/api/posts?limit=6').catch(() => []),
+      const [me, stats, cal, posts] = await Promise.all([
+        api.get('/api/users/me').catch(() => null),
+        api.get(`/api/users/${user.id}`).catch(() => null),
+        api.get('/api/users/me/calendar').catch(() => null),
+        api.get(`/api/users/${user.id}/posts`).catch(() => []),
       ]);
-      setStats({
-        starPoints: meRes.starPoints ?? 0,
-        postCount: meRes._count?.posts ?? meRes.postCount ?? 0,
-        followerCount: meRes._count?.followers ?? meRes.followerCount ?? 0,
-        followingCount: meRes._count?.following ?? meRes.followingCount ?? 0,
-        groupCount: meRes._count?.groupMemberships ?? meRes.groupCount ?? 0,
-      });
-      setStreak({
-        currentStreak: streakRes.currentStreak ?? 0,
-        longestStreak: streakRes.longestStreak ?? 0,
-        badges: Array.isArray(streakRes.badges) ? streakRes.badges : [],
-      });
-      setPosts(Array.isArray(postsRes) ? postsRes.slice(0, 6) : []);
+      setP((s) => ({
+        ...s,
+        displayName: me?.profile?.displayName ?? s.displayName,
+        avatarUrl: me?.profile?.avatarUrl ?? s.avatarUrl,
+        goalNote: me?.profile?.goalNote ?? '',
+        stars: me?.starPoints ?? stats?.starPoints ?? 0,
+        streak: stats?.currentStreak ?? 0,
+        posts: stats?.postCount ?? 0,
+        followers: stats?.followerCount ?? 0,
+        following: stats?.followingCount ?? 0,
+        rank: stats?.leaderboardRank ?? null,
+      }));
+      setWeek(buildWeek(cal?.days));
+      const list = Array.isArray(posts) ? posts : (Array.isArray(posts?.posts) ? posts.posts : []);
+      setPostList(list);
     } catch (e) {}
-  }, [api]);
-
+  }, [api, user]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refreshUser(), load()]);
-    setRefreshing(false);
-  };
+  const shareProfile = () => Share.share({ message: `${p.displayName || 'Profilim'} · Social Fit'te beni takip et! 🌿` }).catch(() => {});
 
-  const profile = user?.profile || {};
-  const displayName = profile.displayName || user?.email?.split('@')[0] || 'Kullanıcı';
-  const bio = profile.goalNote?.trim() || 'Fitness tutkunu 💪';
-
-  // Build badge list — mark earned ones from API
-  const earnedIds = new Set((streak.badges || []).map((b) => b.id ?? b.name));
-  const badgeList = BADGE_DEFS.map((b) => ({
-    ...b,
-    unlocked: earnedIds.has(b.id) || earnedIds.has(b.label),
-  }));
-  // Put unlocked badges first
-  badgeList.sort((a, b) => (b.unlocked ? 1 : 0) - (a.unlocked ? 1 : 0));
-
-  // Weekly activity dots — simulate last 7 days based on streak
-  const todayIdx = new Date().getDay(); // 0=Sun
-  const weekActivity = WEEK_DAYS.map((_, i) => {
-    const daysAgo = ((todayIdx === 0 ? 7 : todayIdx) - 1) - i;
-    return daysAgo >= 0 && daysAgo < streak.currentStreak;
-  });
-
-  const uri = avatarUri(profile);
+  const badges = [
+    { emoji: '🔥', label: '7 Gün', on: p.streak >= 7 },
+    { emoji: '⚡', label: '14 Gün', on: p.streak >= 14 },
+    { emoji: '💎', label: '30 Gün', on: p.streak >= 30 },
+    { emoji: '📸', label: '10 Post', on: p.posts >= 10 },
+    { emoji: '🤝', label: 'Sosyal', on: p.followers >= 5 },
+  ];
+  const earned = badges.filter((b) => b.on).length;
 
   return (
-    <View style={styles.root}>
-      <ScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
-      >
-        {/* ── GREEN HEADER ── */}
-        <View style={styles.header}>
-          {/* Top row: settings + share */}
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => navigation.navigate && navigation.navigate('EditProfile')}
-            >
-              <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconBtn}>
-              <Ionicons name="share-social-outline" size={20} color="rgba(255,255,255,0.85)" />
-            </TouchableOpacity>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={{ paddingBottom: 28 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
+    >
+      <LinearGradient colors={['#1B8659', colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cover, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.coverTop}>
+          <Text style={styles.coverTitle}>Profil</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity hitSlop={8} onPress={shareProfile}><Ionicons name="share-social-outline" size={20} color={colors.white} /></TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('EditProfile')}><Ionicons name="create-outline" size={20} color={colors.white} /></TouchableOpacity>
           </View>
+        </View>
+        <View style={{ alignItems: 'center', marginTop: 12 }}>
+          <Avatar profile={p} size={88} style={{ borderRadius: 30, borderWidth: 4, borderColor: 'rgba(255,255,255,0.85)' }} />
+          <Text style={styles.dn}>{p.displayName || 'Kullanıcı'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <View style={styles.starPill}><Text style={styles.starPillText}>⭐ {p.stars.toLocaleString('tr-TR')}</Text></View>
+            {p.rank ? <View style={styles.rankPill}><Text style={styles.rankPillText}>🏆 #{p.rank}</Text></View> : null}
+          </View>
+          {p.goalNote ? <Text style={styles.bio}>{p.goalNote}</Text> : null}
+        </View>
+      </LinearGradient>
 
-          {/* Avatar */}
-          <View style={styles.avatarWrap}>
-            {uri ? (
-              <Image source={{ uri }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <Text style={styles.avatarInitial}>{getInitial(displayName)}</Text>
+      {/* Streak kartı */}
+      <View style={styles.streakCard}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <Text style={{ fontSize: 46 }}>🔥</Text>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 7 }}>
+              <Text style={styles.streakNum}>{p.streak}</Text>
+              <Text style={styles.streakLbl}>gün seri</Text>
+            </View>
+            <Text style={styles.streakSub}>Her gün paylaş, seriyi koru · 00:00'da sıfırlanır</Text>
+          </View>
+        </View>
+        <View style={styles.weekRow}>
+          {week.map((w, i) => (
+            <View key={i} style={{ alignItems: 'center', gap: 5 }}>
+              <View style={[styles.dayBox,
+                w.done && { backgroundColor: colors.primary },
+                w.today && { backgroundColor: colors.coralTint, borderWidth: 2, borderColor: colors.coral },
+                !w.done && !w.today && { backgroundColor: '#EEF2EC', borderWidth: 2, borderColor: '#CBD6CC', borderStyle: 'dashed' }]}>
+                {w.done ? <Ionicons name="checkmark" size={18} color={colors.white} /> : w.today ? <Text style={{ fontSize: 15 }}>{w.todayActive ? '✅' : '🔥'}</Text> : null}
               </View>
-            )}
-            {/* Star points chip on avatar */}
-            <View style={styles.starChip}>
-              <Text style={styles.starChipText}>⭐ {stats.starPoints}</Text>
+              <Text style={[styles.dayLbl, w.today && { color: colors.coralDark, fontFamily: font.bodyBold }]}>{w.d}</Text>
             </View>
+          ))}
+        </View>
+      </View>
+
+      {/* İstatistik */}
+      <View style={styles.statsCard}>
+        {[[p.posts, 'Paylaşım'], [p.followers, 'Takipçi'], [p.following, 'Takip']].map(([n, l], i) => (
+          <View key={i} style={[styles.stat, i < 2 && { borderRightWidth: 1, borderRightColor: colors.divider }]}>
+            <Text style={styles.statNum}>{n}</Text>
+            <Text style={styles.statLbl}>{l}</Text>
           </View>
+        ))}
+      </View>
 
-          <Text style={styles.displayName}>{displayName}</Text>
-          <Text style={styles.bio} numberOfLines={2}>{bio}</Text>
+      {/* Profili düzenle */}
+      <TouchableOpacity style={styles.editBtn} activeOpacity={0.85} onPress={() => navigation.navigate('EditProfile')}>
+        <Ionicons name="create-outline" size={18} color={colors.primary} />
+        <Text style={styles.editText}>Profili Düzenle</Text>
+      </TouchableOpacity>
 
-          {/* Edit profile button */}
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => navigation.navigate && navigation.navigate('EditProfile')}
-          >
-            <Ionicons name="pencil-outline" size={14} color={GREEN} />
-            <Text style={styles.editBtnText}>Profili Düzenle</Text>
-          </TouchableOpacity>
+      {/* Rozetler */}
+      <View style={{ marginHorizontal: 16, marginTop: 18 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
+          <Text style={styles.sectionTitle}>Rozetler</Text>
+          <Text style={styles.sectionLink}>{earned} / {badges.length} kazanıldı</Text>
         </View>
-
-        {/* ── 4-STAT BAR ── */}
-        <View style={styles.statBar}>
-          <StatItem value={stats.postCount} label="Gönderi" />
-          <View style={styles.statDivider} />
-          <StatItem value={stats.followerCount} label="Takipçi" />
-          <View style={styles.statDivider} />
-          <StatItem value={stats.followingCount} label="Takip" />
-          <View style={styles.statDivider} />
-          <StatItem value={stats.groupCount} label="Grup" />
-        </View>
-
-        {/* ── STREAK CARD ── */}
-        <View style={styles.streakCard}>
-          <View style={styles.streakTop}>
-            <View>
-              <Text style={styles.streakTitle}>🔥 Günlük Seri</Text>
-              <Text style={styles.streakSub}>En uzun: {streak.longestStreak} gün</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {badges.map((b, i) => (
+            <View key={i} style={[styles.badge, !b.on && { backgroundColor: '#EEF2EC' }]}>
+              <Text style={{ fontSize: 26, opacity: b.on ? 1 : 0.4 }}>{b.emoji}</Text>
+              <Text style={[styles.badgeLbl, { color: b.on ? colors.muted : '#AAB6AC' }]}>{b.label}</Text>
             </View>
-            <View style={styles.streakBadge}>
-              <Text style={styles.streakBadgeNum}>{streak.currentStreak}</Text>
-              <Text style={styles.streakBadgeLabel}>gün</Text>
-            </View>
-          </View>
-          {/* 7-day dots */}
-          <View style={styles.weekRow}>
-            {WEEK_DAYS.map((day, i) => (
-              <View key={day} style={styles.dayCol}>
-                <View style={[styles.dayDot, weekActivity[i] && styles.dayDotActive]} />
-                <Text style={styles.dayLabel}>{day}</Text>
-              </View>
-            ))}
-          </View>
+          ))}
         </View>
+      </View>
 
-        {/* ── BADGE COLLECTION ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>🏅 Rozetler</Text>
-            <Text style={styles.sectionSub}>{badgeList.filter((b) => b.unlocked).length}/{badgeList.length}</Text>
+      {/* Paylaşımlarım */}
+      <View style={{ marginHorizontal: 16, marginTop: 22 }}>
+        <Text style={styles.sectionTitle}>Paylaşımlarım</Text>
+        {postList.length === 0 ? (
+          <View style={styles.postsEmpty}>
+            <Ionicons name="camera-outline" size={36} color={colors.faint} />
+            <Text style={styles.postsEmptyText}>Henüz paylaşımın yok</Text>
           </View>
-          <View style={styles.badgeGrid}>
-            {badgeList.map((badge) => (
-              <View key={badge.id} style={[styles.badgeItem, !badge.unlocked && styles.badgeItemLocked]}>
-                <Text style={[styles.badgeEmoji, !badge.unlocked && styles.badgeEmojiLocked]}>
-                  {badge.unlocked ? badge.emoji : '🔒'}
-                </Text>
-                <Text style={[styles.badgeLabel, !badge.unlocked && styles.badgeLabelLocked]} numberOfLines={2}>
-                  {badge.label}
-                </Text>
-              </View>
-            ))}
+        ) : (
+          <View style={styles.grid}>
+            {postList.map((post) => {
+              const img = resolveUri(post.imageUrl);
+              return (
+                <View key={post.id} style={styles.cell}>
+                  {img ? (
+                    <Image source={{ uri: img }} style={styles.cellImg} />
+                  ) : (
+                    <View style={[styles.cellImg, styles.cellPlaceholder]}>
+                      <Text style={styles.cellCaption} numberOfLines={3}>{post.caption || ''}</Text>
+                    </View>
+                  )}
+                  <View style={styles.cellOverlay}>
+                    <Ionicons name="heart" size={11} color="#fff" />
+                    <Text style={styles.cellLikes}>{post._count?.likes ?? 0}</Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-        </View>
-
-        {/* ── POST GRID ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>📸 Gönderiler</Text>
-            {posts.length > 0 && (
-              <TouchableOpacity>
-                <Text style={styles.seeAll}>Tümünü gör</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {posts.length === 0 ? (
-            <View style={styles.postGridEmpty}>
-              <Ionicons name="camera-outline" size={36} color="#D1D5DB" />
-              <Text style={styles.postGridEmptyText}>Henüz gönderi yok</Text>
-            </View>
-          ) : (
-            <View style={styles.postGrid}>
-              {Array.from({ length: 6 }).map((_, i) => {
-                const post = posts[i];
-                if (!post) {
-                  return <View key={`empty-${i}`} style={[styles.postCell, styles.postCellEmpty]} />;
-                }
-                const imgUrl = post.imageUrl
-                  ? (post.imageUrl.startsWith('http') ? post.imageUrl : `${API_BASE}${post.imageUrl}`)
-                  : null;
-                return (
-                  <TouchableOpacity key={post.id} style={styles.postCell} activeOpacity={0.85}>
-                    {imgUrl ? (
-                      <Image source={{ uri: imgUrl }} style={styles.postImg} />
-                    ) : (
-                      <View style={styles.postImgPlaceholder}>
-                        <Text style={styles.postCaption} numberOfLines={3}>{post.caption || ''}</Text>
-                      </View>
-                    )}
-                    {post.starPoints > 0 && (
-                      <View style={styles.postStarChip}>
-                        <Text style={styles.postStarChipText}>⭐ {post.starPoints}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        {/* ── LOGOUT ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <Ionicons name="log-out-outline" size={18} color={ORANGE} />
-          <Text style={styles.logoutText}>Çıkış Yap</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
-  );
-}
-
-function StatItem({ value, label }) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F7FAF8' },
-  container: { flex: 1 },
-
-  // ── Header ──
-  header: {
-    backgroundColor: GREEN,
-    paddingTop: 52,
-    paddingBottom: 28,
-    alignItems: 'center',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    width: '100%',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  headerIconBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-
-  // Avatar
-  avatarWrap: { position: 'relative', marginBottom: 12 },
-  avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 3, borderColor: '#fff' },
-  avatarFallback: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  avatarInitial: { fontSize: 40, fontWeight: '700', color: '#fff' },
-  starChip: {
-    position: 'absolute', bottom: -6, right: -6,
-    backgroundColor: GOLD_L,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 12, borderWidth: 1.5, borderColor: '#fff',
-  },
-  starChipText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
-
-  displayName: { fontSize: 22, fontWeight: '800', color: '#fff', marginTop: 6 },
-  bio: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 4, textAlign: 'center', paddingHorizontal: 32 },
-
-  editBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20, paddingVertical: 8,
-    borderRadius: 20, marginTop: 16,
-  },
-  editBtnText: { fontSize: 13, fontWeight: '700', color: GREEN },
-
-  // ── Stat Bar ──
-  statBar: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16, marginTop: 16,
-    borderRadius: 18, paddingVertical: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
-  statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
-  statDivider: { width: 1, height: 32, backgroundColor: '#F3F4F6' },
-
-  // ── Streak Card ──
-  streakCard: {
-    backgroundColor: ORANGE,
-    marginHorizontal: 16, marginTop: 14,
-    borderRadius: 20, padding: 18,
-  },
-  streakTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  streakTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
-  streakSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  streakBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    width: 56, height: 56, borderRadius: 28,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  streakBadgeNum: { fontSize: 22, fontWeight: '800', color: '#fff', lineHeight: 26 },
-  streakBadgeLabel: { fontSize: 10, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
-
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayCol: { alignItems: 'center', gap: 4 },
-  dayDot: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  dayDotActive: { backgroundColor: '#fff' },
-  dayLabel: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
-
-  // ── Section ──
-  section: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16, marginTop: 14,
-    borderRadius: 20, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  sectionRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  sectionSub: { fontSize: 13, color: '#9CA3AF' },
-  seeAll: { fontSize: 13, color: GREEN, fontWeight: '600' },
-
-  // ── Badge Grid ──
-  badgeGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
-  },
-  badgeItem: {
-    width: '22%', alignItems: 'center',
-    backgroundColor: GREEN_XL,
-    borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4,
-    marginBottom: 4,
-  },
-  badgeItemLocked: { backgroundColor: '#F9FAFB' },
-  badgeEmoji: { fontSize: 28, marginBottom: 4 },
-  badgeEmojiLocked: { opacity: 0.5 },
-  badgeLabel: {
-    fontSize: 10, fontWeight: '600', color: GREEN, textAlign: 'center', lineHeight: 13,
-  },
-  badgeLabelLocked: { color: '#9CA3AF' },
-
-  // ── Post Grid ──
-  postGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
-  postCell: {
-    width: '32.5%', aspectRatio: 1,
-    borderRadius: 10, overflow: 'hidden',
-    position: 'relative',
-  },
-  postCellEmpty: { backgroundColor: '#F3F4F6' },
-  postImg: { width: '100%', height: '100%' },
-  postImgPlaceholder: {
-    flex: 1, backgroundColor: GREEN_XL,
-    justifyContent: 'center', alignItems: 'center',
-    padding: 8,
-  },
-  postCaption: { fontSize: 10, color: GREEN, textAlign: 'center' },
-  postStarChip: {
-    position: 'absolute', top: 4, right: 4,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 5, paddingVertical: 2,
-    borderRadius: 8,
-  },
-  postStarChipText: { fontSize: 9, color: '#fff', fontWeight: '700' },
-  postGridEmpty: {
-    alignItems: 'center', paddingVertical: 32, gap: 8,
-  },
-  postGridEmptyText: { fontSize: 14, color: '#9CA3AF' },
-
-  // ── Logout ──
-  logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, marginHorizontal: 16, marginTop: 14,
-    paddingVertical: 14,
-    borderRadius: 16, borderWidth: 1.5, borderColor: ORANGE_L,
-    backgroundColor: '#fff',
-  },
-  logoutText: { fontSize: 15, fontWeight: '700', color: ORANGE },
+  screen: { flex: 1, backgroundColor: colors.bg },
+  cover: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
+  coverTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  coverTitle: { fontFamily: font.bodyBold, fontSize: 17, color: colors.white },
+  dn: { fontFamily: font.displayBold, fontSize: 21, color: colors.white, marginTop: 11 },
+  starPill: { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 11 },
+  starPillText: { fontFamily: font.bodyBold, fontSize: 12, color: '#FFE9A8' },
+  rankPill: { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 11 },
+  rankPillText: { fontFamily: font.bodyBold, fontSize: 12, color: colors.white },
+  bio: { fontSize: 13, color: '#C7E6D5', marginTop: 8, fontFamily: font.body, textAlign: 'center', paddingHorizontal: 24 },
+  streakCard: { marginHorizontal: 16, marginTop: -18, backgroundColor: colors.surface, borderRadius: 24, ...shadow.card, padding: 16 },
+  streakNum: { fontFamily: font.displayBold, fontSize: 40, color: colors.ink },
+  streakLbl: { fontFamily: font.bodyBold, fontSize: 15, color: colors.muted },
+  streakSub: { fontSize: 12, color: colors.faint, marginTop: 3, fontFamily: font.body },
+  weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+  dayBox: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  dayLbl: { fontSize: 11, color: colors.muted, fontFamily: font.bodyBold },
+  statsCard: { flexDirection: 'row', marginHorizontal: 16, marginTop: 14, backgroundColor: colors.surface, borderRadius: 20, ...shadow.soft, paddingVertical: 14 },
+  stat: { flex: 1, alignItems: 'center' },
+  statNum: { fontFamily: font.displayBold, fontSize: 20, color: colors.ink },
+  statLbl: { fontSize: 11, color: colors.faint, fontFamily: font.bodyBold, marginTop: 2 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, backgroundColor: colors.mint, borderRadius: 16, paddingVertical: 13 },
+  editText: { color: colors.primary, fontFamily: font.bodyBold, fontSize: 15 },
+  sectionTitle: { fontFamily: font.bodyBold, fontSize: 16, color: colors.ink },
+  sectionLink: { fontSize: 12, color: colors.primary, fontFamily: font.bodyBold },
+  badge: { flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 12, alignItems: 'center', ...shadow.soft },
+  badgeLbl: { fontSize: 10, fontFamily: font.bodyBold, marginTop: 4 },
+  postsEmpty: { alignItems: 'center', gap: 10, paddingVertical: 30 },
+  postsEmptyText: { fontSize: 14, color: colors.muted, fontFamily: font.body },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  cell: { width: '32%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface },
+  cellImg: { width: '100%', height: '100%' },
+  cellPlaceholder: { backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center', padding: 8 },
+  cellCaption: { fontSize: 11, color: colors.primary, fontFamily: font.body, textAlign: 'center' },
+  cellOverlay: { position: 'absolute', bottom: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(17,35,27,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  cellLikes: { color: '#fff', fontSize: 10, fontFamily: font.bodyBold },
 });

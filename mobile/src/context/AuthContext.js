@@ -23,15 +23,23 @@ export function AuthProvider({ children }) {
       const t = await AsyncStorage.getItem(TOKEN_KEY);
       const u = await AsyncStorage.getItem(USER_KEY);
       if (t) {
+        // Önbellekteki oturumu hemen geri yükle (hızlı/çevrimdışı açılış)
         setTokenState(t);
         if (u) setUser(JSON.parse(u));
-        else {
+        // Ardından token'ı doğrula: süresi dolmuş/geçersizse oturumu temizle
+        try {
           const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
           if (res.ok) {
             const data = await res.json();
             setUser(data.user);
             await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
-          } else setTokenState(null);
+          } else if (res.status === 401 || res.status === 403) {
+            setTokenState(null);
+            setUser(null);
+            await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+          }
+        } catch (_netErr) {
+          // Ağ hatası (ör. çevrimdışı): önbellekteki oturumu koru
         }
       }
     } catch (e) {

@@ -35,6 +35,8 @@ function NotifIcon({ type }) {
   if (type === 'like') return <View style={[styles.notifIcon, { backgroundColor: '#FEE2E2' }]}><Text style={{ fontSize: 16 }}>❤️</Text></View>;
   if (type === 'follow_request') return <View style={[styles.notifIcon, { backgroundColor: GREEN_XL }]}><Ionicons name="person-add" size={18} color={GREEN} /></View>;
   if (type === 'follow_accepted') return <View style={[styles.notifIcon, { backgroundColor: GREEN_XL }]}><Ionicons name="checkmark-circle" size={18} color={GREEN} /></View>;
+  if (type === 'group_join_request') return <View style={[styles.notifIcon, { backgroundColor: GREEN_XL }]}><Ionicons name="people" size={18} color={GREEN} /></View>;
+  if (type === 'group_join_accepted') return <View style={[styles.notifIcon, { backgroundColor: GREEN_XL }]}><Ionicons name="checkmark-done" size={18} color={GREEN} /></View>;
   return <View style={[styles.notifIcon, { backgroundColor: '#F3F4F6' }]}><Ionicons name="notifications" size={18} color="#6B7280" /></View>;
 }
 
@@ -42,6 +44,8 @@ function notifMessage(type, name) {
   if (type === 'like') return `${name} gönderini beğendi`;
   if (type === 'follow_request') return `${name} seni takip etmek istiyor`;
   if (type === 'follow_accepted') return `${name} takip isteğini kabul etti`;
+  if (type === 'group_join_request') return `${name} grubuna katılmak istiyor`;
+  if (type === 'group_join_accepted') return `${name} grup katılma isteğini onayladı`;
   return '';
 }
 
@@ -102,6 +106,19 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
+  // Grup katılma isteği — onayla / reddet (item.postId = groupId)
+  const respondGroup = async (item, action) => {
+    setActionLoading((p) => ({ ...p, [item.fromUserId]: true }));
+    try {
+      await api.post(`/api/groups/${item.postId}/requests/${item.fromUserId}/${action}`);
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, resolved: true } : n)));
+    } catch (e) {
+      Alert.alert('Hata', e.message || 'İşlem başarısız');
+    } finally {
+      setActionLoading((p) => ({ ...p, [item.fromUserId]: false }));
+    }
+  };
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={GREEN} size="large" /></View>;
   }
@@ -158,29 +175,29 @@ export default function NotificationsScreen({ navigation }) {
                 </Text>
                 <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
 
-                {/* Takip isteği aksiyon butonları */}
-                {item.type === 'follow_request' && !item.resolved && (
+                {/* İstek aksiyon butonları (takip / grup katılma) */}
+                {(item.type === 'follow_request' || item.type === 'group_join_request') && !item.resolved && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity
                       style={styles.acceptBtn}
-                      onPress={() => accept(item.fromUserId)}
+                      onPress={() => (item.type === 'group_join_request' ? respondGroup(item, 'approve') : accept(item.fromUserId))}
                       disabled={isLoading}
                     >
                       {isLoading
                         ? <ActivityIndicator color="#fff" size="small" />
-                        : <Text style={styles.acceptBtnText}>Kabul Et</Text>
+                        : <Text style={styles.acceptBtnText}>{item.type === 'group_join_request' ? 'Onayla' : 'Kabul Et'}</Text>
                       }
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.rejectBtn}
-                      onPress={() => reject(item.fromUserId)}
+                      onPress={() => (item.type === 'group_join_request' ? respondGroup(item, 'reject') : reject(item.fromUserId))}
                       disabled={isLoading}
                     >
                       <Text style={styles.rejectBtnText}>Reddet</Text>
                     </TouchableOpacity>
                   </View>
                 )}
-                {item.type === 'follow_request' && item.resolved && (
+                {(item.type === 'follow_request' || item.type === 'group_join_request') && item.resolved && (
                   <Text style={styles.resolvedText}>İşlem tamamlandı</Text>
                 )}
               </View>

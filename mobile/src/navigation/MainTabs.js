@@ -43,6 +43,12 @@ import CoachesScreen from '../screens/main/CoachesScreen';
 import CoachBookingScreen from '../screens/main/CoachBookingScreen';
 import FoodLogScreen from '../screens/foodlog/FoodLogScreen';
 import AddFoodScreen from '../screens/foodlog/AddFoodScreen';
+import NutritionScreen from '../screens/main/NutritionScreen';
+import RecipesScreen from '../screens/main/RecipesScreen';
+import GroupDiscoverScreen from '../screens/main/GroupDiscoverScreen';
+import GroupMapScreen from '../screens/main/GroupMapScreen';
+import RecipeDetailScreen from '../screens/main/RecipeDetailScreen';
+import BlogScreen from '../screens/main/BlogScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -58,7 +64,7 @@ function MoreStack() {
           title: 'Bloglar',
           headerTitle: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="leaf" size={22} color="#2d6a4f" style={{ marginRight: 8 }} />
+              <Ionicons name="leaf" size={22} color="#157A52" style={{ marginRight: 8 }} />
               <Text style={{ fontSize: 18, fontWeight: '600', color: '#111827' }}>Social Fit</Text>
             </View>
           ),
@@ -67,10 +73,11 @@ function MoreStack() {
       />
       <Stack.Screen name="BlogDetail" component={BlogDetailScreen} options={{ title: 'Yazı' }} />
       <Stack.Screen name="Tools" component={ToolsScreen} options={{ title: 'Araçlar' }} />
-      <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Lider Tablosu' }} />
+      <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Bildirimler' }} />
       <Stack.Screen name="Coaches" component={CoachesScreen} options={{ title: 'Diyetisyenimle Görüş' }} />
-      <Stack.Screen name="CoachBooking" component={CoachBookingScreen} options={{ title: 'Randevu Al' }} />
+      <Stack.Screen name="CoachBooking" component={CoachBookingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FoodLog" component={FoodLogScreen} options={{ title: 'Yemek Günlüğü' }} />
       <Stack.Screen name="AddFood" component={AddFoodScreen} options={{ title: 'Yemek Ekle' }} />
     </Stack.Navigator>
@@ -94,52 +101,14 @@ function FeedStack() {
       <Stack.Screen
         name="FeedList"
         component={FeedScreen}
-        options={({ navigation }) => ({
-          headerTitle: 'Akış',
-          headerTitleAlign: 'left',
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => navigation.getParent()?.navigate('More', { screen: 'Leaderboard' })}
-              style={{ marginLeft: 16 }}
-            >
-              <Ionicons name="trophy" size={24} color="#2d6a4f" />
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
-              <TouchableOpacity
-                onPress={() => { setUnreadCount(0); navigation.navigate('Notifications'); }}
-                style={{ marginRight: 8, padding: 4 }}
-              >
-                <View>
-                  <Ionicons name="notifications-outline" size={24} color="#2d6a4f" />
-                  {unreadCount > 0 && (
-                    <View style={{
-                      position: 'absolute', top: -4, right: -4,
-                      minWidth: 16, height: 16, borderRadius: 8,
-                      backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center',
-                      paddingHorizontal: 3,
-                    }}>
-                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => navigation.getParent()?.navigate('More', { screen: 'MoreMenu' })}
-                style={{ padding: 4 }}
-              >
-                <Ionicons name="menu" size={24} color="#2d6a4f" />
-              </TouchableOpacity>
-            </View>
-          ),
-        })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Bildirimler' }} />
       <Stack.Screen name="Comments" component={CommentScreen} options={{ title: 'Yorumlar' }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
+      <Stack.Screen name="CoachBooking" component={CoachBookingScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="BlogDetail2" component={BlogDetailScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
@@ -154,7 +123,7 @@ function CreateStack() {
           title: 'Paylaş',
           headerLeft: () => (
             <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Feed')} style={{ marginLeft: 16 }}>
-              <Ionicons name="arrow-back" size={24} color="#2d6a4f" />
+              <Ionicons name="arrow-back" size={24} color="#157A52" />
             </TouchableOpacity>
           ),
         })}
@@ -169,15 +138,26 @@ function GroupsStack() {
       <Stack.Screen
         name="GroupsList"
         component={GroupsScreen}
-        options={({ navigation }) => ({ title: 'Gruplar', headerRight: () => (
-          <TouchableOpacity onPress={() => navigation.navigate('CreateGroup')} style={{ marginRight: 16 }}>
-            <Ionicons name="add" size={24} color="#2d6a4f" />
-          </TouchableOpacity>
-        ) })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ title: 'Grup Oluştur' }} />
+      <Stack.Screen name="GroupDiscover" component={GroupDiscoverScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="GroupMap" component={GroupMapScreen} options={{ headerShown: false }} />
       <Stack.Screen name="GroupFeed" component={GroupFeedScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EditGroup" component={EditGroupScreen} options={{ title: 'Grubu Düzenle' }} />
+    </Stack.Navigator>
+  );
+}
+
+function NutritionStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="NutritionMain" component={NutritionScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Tools" component={ToolsScreen} options={{ title: 'Sağlık Hesaplayıcıları' }} />
+      <Stack.Screen name="Recipes" component={RecipesScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="FoodLog" component={FoodLogScreen} options={{ title: 'Yemek Günlüğü' }} />
+      <Stack.Screen name="AddFood" component={AddFoodScreen} options={{ title: 'Yemek Ekle' }} />
     </Stack.Navigator>
   );
 }
@@ -217,14 +197,7 @@ function ProfileStack() {
       <Stack.Screen
         name="ProfileMain"
         component={ProfileScreen}
-        options={({ navigation }) => ({
-          title: 'Profil',
-          headerRight: () => (
-            <TouchableOpacity onPress={() => navigation.navigate('EditProfile')} style={{ marginRight: 16 }}>
-              <Ionicons name="pencil" size={22} color="#2d6a4f" />
-            </TouchableOpacity>
-          ),
-        })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Profili Düzenle' }} />
       <Stack.Screen
@@ -269,13 +242,13 @@ export default function MainTabs() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ color, size }) => {
-            const icons = { Feed: 'home', Create: 'add', Messages: 'chatbubbles', Profile: 'person', Groups: 'people', More: 'ellipsis-horizontal' };
+            const icons = { Feed: 'home', Nutrition: 'restaurant', Create: 'add', Groups: 'people', Profile: 'person', Messages: 'chatbubbles', More: 'ellipsis-horizontal' };
             if (route.name === 'Create') return null;
             return <Ionicons name={icons[route.name] || 'ellipse'} size={size} color={color} />;
           },
-          tabBarActiveTintColor: '#2d6a4f',
-          tabBarInactiveTintColor: '#9ca3af',
-          tabBarStyle: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+          tabBarActiveTintColor: '#157A52',
+          tabBarInactiveTintColor: '#93A299',
+          tabBarStyle: { backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E6EBE5' },
           tabBarLabelStyle: { fontSize: 12 },
         })}
       >
@@ -288,7 +261,7 @@ export default function MainTabs() {
             return {};
           }}
         />
-        <Tab.Screen name="Groups" component={GroupsStack} options={{ title: 'Gruplar', headerShown: false }} />
+        <Tab.Screen name="Nutrition" component={NutritionStack} options={{ title: 'Beslenme', headerShown: false }} />
         <Tab.Screen
           name="Create"
           component={CreateStack}
@@ -303,15 +276,16 @@ export default function MainTabs() {
                 style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 8 }}
                 activeOpacity={0.8}
               >
-                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#2d6a4f', justifyContent: 'center', alignItems: 'center', marginBottom: 4 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#157A52', justifyContent: 'center', alignItems: 'center', marginBottom: 4 }}>
                   <Ionicons name="add" size={32} color="#fff" />
                 </View>
               </TouchableOpacity>
             ),
           }}
         />
-        <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false }} />
+        <Tab.Screen name="Groups" component={GroupsStack} options={{ title: 'Gruplar', headerShown: false }} />
         <Tab.Screen name="Profile" component={ProfileStack} options={{ title: 'Profil', headerShown: false }} />
+        <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false, tabBarButton: () => null }} />
         <Tab.Screen name="More" component={MoreStack} options={{ title: 'Daha Fazla', tabBarButton: () => null }} />
       </Tab.Navigator>
 
@@ -347,8 +321,8 @@ export default function MainTabs() {
                 navRef.current?.navigate('Create', { screen: 'CreatePost' });
               }}
             >
-              <View style={[fabStyles.menuIcon, { backgroundColor: '#2d6a4f18' }]}>
-                <Ionicons name="camera-outline" size={22} color="#2d6a4f" />
+              <View style={[fabStyles.menuIcon, { backgroundColor: '#157A5218' }]}>
+                <Ionicons name="camera-outline" size={22} color="#157A52" />
               </View>
               <Text style={fabStyles.menuText}>Gönderi Paylaş</Text>
             </TouchableOpacity>

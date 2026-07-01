@@ -1,88 +1,80 @@
-import React, { useState, useCallback, useMemo } from 'react';
+// MessagesScreen.js — SocialFit redesign · Sohbet listesi
+// Konum önerisi: src/screens/main/MessagesScreen.js
+//
+// Backend: GET /messages/conversations
+//   -> [{ userId, profile:{displayName, avatarUrl}, lastMessage, lastAt,
+//          unread, unreadCount, points, starPoints }]
+//
+// Navigasyon: Chat ekranına { userId, profile } ile geçer.
+
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
   Image,
-  TextInput,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { useApi } from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useApi } from '../../api/client';
 import { API_BASE } from '../../config';
+import { colors, radius, font, shadow, avatarColor, getInitials } from '../../theme/socialFitTheme';
 
-const GREEN = '#2D6A4F';
-const GREEN_XL = '#D8F3DC';
-const PLACEHOLDER_COLORS = ['#52B788', '#3B82F6', '#F4845F', '#FBBF24', '#8B5CF6'];
-
-function resolveUri(url) {
+function avatarUri(profile) {
+  const url = profile?.avatarUrl;
   if (!url) return null;
-  if (url.startsWith('http')) return url;
-  return `${API_BASE}${url}`;
+  return url.startsWith('http') ? url : `${API_BASE}${url}`;
 }
 
-function formatTime(iso) {
+function timeAgoShort(iso) {
   if (!iso) return '';
-  const date = new Date(iso);
+  const d = new Date(iso);
   const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'şimdi';
-  if (diffMins < 60) return `${diffMins}dk`;
-  if (diffHours < 24) return `${diffHours}sa`;
-  if (diffDays < 7) return `${diffDays}g`;
-  return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays === 1) return 'Dün';
+  if (diffDays < 7) return ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'][d.getDay()];
+  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
 }
 
-function getAvatarColor(name) {
-  if (!name) return PLACEHOLDER_COLORS[0];
-  return PLACEHOLDER_COLORS[name.charCodeAt(0) % PLACEHOLDER_COLORS.length];
+function formatStars(n) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return `${n ?? 0}`;
 }
 
-function AvatarCircle({ profile, size = 48, showOnline = false }) {
-  const uri = resolveUri(profile?.avatarUrl);
-  const name = profile?.displayName || '?';
-  const initial = name.charAt(0).toUpperCase();
+function Avatar({ profile, size = 54 }) {
+  const uri = avatarUri(profile);
+  const name = profile?.displayName;
+  if (uri) {
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size * 0.33 }} />;
+  }
   return (
-    <View style={{ position: 'relative', width: size, height: size }}>
-      {uri ? (
-        <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
-      ) : (
-        <View style={[
-          styles.avatarPlaceholder,
-          { width: size, height: size, borderRadius: size / 2, backgroundColor: getAvatarColor(name) }
-        ]}>
-          <Text style={[styles.avatarInitial, { fontSize: size * 0.42 }]}>{initial}</Text>
-        </View>
-      )}
-      {showOnline && (
-        <View style={[styles.onlineDot, {
-          width: size * 0.28, height: size * 0.28,
-          borderRadius: size * 0.14, right: 0, bottom: 0,
-        }]} />
-      )}
+    <View style={{ width: size, height: size, borderRadius: size * 0.33, backgroundColor: avatarColor(name), alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: colors.white, fontFamily: font.displayBold, fontSize: size * 0.33 }}>{getInitials(name)}</Text>
     </View>
   );
 }
 
 export default function MessagesScreen({ navigation }) {
   const api = useApi();
-  const { user } = useAuth();
-  const [conversations, setConversations] = useState([]);
+  const insets = useSafeAreaInsets();
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await api.get('/api/messages/conversations');
-      setConversations(Array.isArray(data) ? data : []);
+      setItems(Array.isArray(data) ? data : []);
     } catch (e) {
-      setConversations([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -90,183 +82,130 @@ export default function MessagesScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const filtered = useMemo(() => {
-    const q = (searchQuery || '').trim().toLowerCase();
-    if (!q) return conversations;
-    return conversations.filter(
-      (c) =>
-        (c.profile?.displayName || '').toLowerCase().includes(q) ||
-        (c.lastMessage || '').toLowerCase().includes(q)
-    );
-  }, [conversations, searchQuery]);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
-  const profile = user?.profile || {};
+  const renderItem = ({ item }) => {
+    const unread = (item.unreadCount ?? 0) > 0;
+    const ticks = item.mine; // benim gönderdiğim son mesajsa tik göster
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('Chat', { userId: item.userId, profile: item.profile })}
+        style={[styles.row, unread && { backgroundColor: colors.mintSoft }]}
+      >
+        <Avatar profile={item.profile} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={styles.rowTop}>
+            <Text style={styles.name} numberOfLines={1}>{item.profile?.displayName}</Text>
+            <View style={styles.starPill}>
+              <Text style={styles.starText}>⭐{formatStars(item.starPoints)}</Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <Text style={[styles.time, unread && { color: colors.primary, fontFamily: font.bodyBold }]}>
+              {timeAgoShort(item.lastAt)}
+            </Text>
+          </View>
+          <View style={styles.rowBottom}>
+            {ticks ? (
+              <Ionicons
+                name="checkmark-done"
+                size={16}
+                color={item.read ? colors.primary : colors.faint}
+                style={{ marginRight: 5 }}
+              />
+            ) : null}
+            <Text
+              style={[styles.preview, unread && { color: colors.ink, fontFamily: font.bodyBold }]}
+              numberOfLines={1}
+            >
+              {item.lastMessage}
+            </Text>
+            {unread ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.unreadCount}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      {/* Başlık */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.getParent()?.navigate('Profile')}
-          activeOpacity={0.85}
-        >
-          <AvatarCircle profile={profile} size={38} showOnline />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Mesajlar</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('SearchUsers')}
-          style={styles.headerIconBtn}
-        >
-          <Ionicons name="person-add-outline" size={22} color="#fff" />
+        <TouchableOpacity style={styles.composeBtn} activeOpacity={0.8} onPress={() => navigation.navigate('SearchUsers')}>
+          <Ionicons name="create-outline" size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
 
       {/* Arama */}
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color="#9CA3AF" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Mesajlarda ara..."
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
+      <TouchableOpacity style={styles.search} activeOpacity={0.7} onPress={() => navigation.navigate('SearchUsers')}>
+        <Ionicons name="search" size={18} color={colors.faint} />
+        <Text style={styles.searchText}>Sohbetlerde ara</Text>
+      </TouchableOpacity>
 
       <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.userId}
-        contentContainerStyle={filtered.length === 0 ? styles.listEmpty : { paddingBottom: 16 }}
-        showsVerticalScrollIndicator={false}
-        onRefresh={load}
-        refreshing={loading}
+        data={items}
+        keyExtractor={(it) => it.userId}
+        renderItem={renderItem}
+        ItemSeparatorComponent={() => <View style={styles.sep} />}
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Ionicons name="chatbubbles-outline" size={52} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>Henüz mesaj yok</Text>
-            <Text style={styles.emptyDesc}>
-              Arkadaşlarınla mesajlaşmaya başlamak için sağ üstteki butona bas.
-            </Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.item}
-            activeOpacity={0.7}
-            onPress={() =>
-              navigation.navigate('Chat', {
-                userId: item.userId,
-                displayName: item.profile?.displayName || 'Kullanıcı',
-                avatarUrl: item.profile?.avatarUrl,
-                starPoints: item.starPoints,
-              })
-            }
-          >
-            <AvatarCircle profile={item.profile} size={52} />
-            <View style={styles.itemCenter}>
-              <View style={styles.itemTopRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.profile?.displayName || 'Kullanıcı'}
-                </Text>
-                <Text style={styles.time}>{formatTime(item.lastAt)}</Text>
-              </View>
-              <View style={styles.itemBottomRow}>
-                <Text
-                  style={item.unreadCount > 0 ? styles.unreadPreview : styles.preview}
-                  numberOfLines={1}
-                >
-                  {item.lastMessage || '—'}
-                </Text>
-                {item.starPoints > 0 && (
-                  <View style={styles.starChip}>
-                    <Text style={styles.starChipText}>⭐ {item.starPoints}</Text>
-                  </View>
-                )}
-              </View>
+          loading ? (
+            <ActivityIndicator color={colors.primary} size="large" style={{ marginTop: 60 }} />
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="chatbubbles-outline" size={42} color={colors.faint} />
+              <Text style={styles.emptyText}>Henüz mesajın yok</Text>
             </View>
-            {item.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
+          )
+        }
+        contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7FAF8' },
-
-  // Header
+  screen: { flex: 1, backgroundColor: colors.surface },
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: GREEN,
-    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 18,
-    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
+    paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  headerTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: '#fff', marginLeft: 12 },
-  headerIconBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center',
+  headerTitle: { fontFamily: font.displayBold, fontSize: 24, color: colors.ink, letterSpacing: -0.3 },
+  composeBtn: {
+    width: 38, height: 38, borderRadius: 13, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center', ...shadow.cta,
   },
+  search: {
+    marginHorizontal: 18, marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 15, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  searchText: { fontSize: 14, color: colors.faint, fontFamily: font.body },
 
-  // Avatar
-  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-  avatarInitial: { color: '#fff', fontWeight: '700' },
-  onlineDot: {
-    position: 'absolute',
-    backgroundColor: '#22C55E',
-    borderWidth: 2, borderColor: GREEN,
+  row: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 18, paddingVertical: 12 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowBottom: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  name: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink, flexShrink: 1 },
+  starPill: { backgroundColor: colors.amberTint, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
+  starText: { fontFamily: font.displayBold, fontSize: 10, color: colors.amberDark },
+  time: { fontSize: 11, color: colors.faint, fontFamily: font.body },
+  preview: { flex: 1, fontSize: 13, color: colors.muted, fontFamily: font.body },
+  badge: {
+    backgroundColor: colors.primary, minWidth: 20, height: 20, borderRadius: 10,
+    paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center',
   },
-
-  // Arama
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16, marginTop: 14, marginBottom: 8,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 2,
-    borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: '#111827' },
-
-  // Boş ekran
-  listEmpty: { flexGrow: 1, justifyContent: 'center' },
-  emptyWrap: { alignItems: 'center', padding: 48 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151', marginTop: 16, marginBottom: 8 },
-  emptyDesc: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
-
-  // Liste
-  item: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 13, paddingHorizontal: 16,
-    borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
-  },
-  itemCenter: { flex: 1, marginLeft: 12, minWidth: 0 },
-  itemTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  name: { fontWeight: '700', fontSize: 15, color: '#111827', flex: 1 },
-  time: { fontSize: 12, color: '#9CA3AF', marginLeft: 8 },
-  itemBottomRow: { flexDirection: 'row', alignItems: 'center' },
-  preview: { fontSize: 13, color: '#6B7280', flex: 1 },
-  unreadPreview: { fontSize: 13, color: '#111827', fontWeight: '600', flex: 1 },
-  starChip: {
-    backgroundColor: '#FEF3C7', paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 10, marginLeft: 6,
-  },
-  starChipText: { fontSize: 11, color: '#D97706', fontWeight: '600' },
-  unreadBadge: {
-    minWidth: 22, height: 22, borderRadius: 11,
-    backgroundColor: GREEN, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 6, marginLeft: 8,
-  },
-  unreadBadgeText: { fontSize: 12, color: '#fff', fontWeight: '700' },
+  badgeText: { color: colors.white, fontFamily: font.displayBold, fontSize: 11 },
+  sep: { height: 1, backgroundColor: colors.divider, marginLeft: 85 },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
+  emptyText: { fontSize: 14, color: colors.muted, fontFamily: font.body, textAlign: 'center' },
 });

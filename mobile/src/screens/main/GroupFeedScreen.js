@@ -61,6 +61,7 @@ export default function GroupFeedScreen({ route, navigation }) {
   const [tab, setTab] = useState('posts'); // 'posts' | 'members'
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingReqs, setPendingReqs] = useState([]);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -71,6 +72,12 @@ export default function GroupFeedScreen({ route, navigation }) {
       ]);
       setGroup(groupData);
       setPosts(Array.isArray(postsData) ? postsData : []);
+      if (groupData?.myRole === 'admin') {
+        const reqs = await api.get(`/api/groups/${groupId}/requests`).catch(() => []);
+        setPendingReqs(Array.isArray(reqs) ? reqs : []);
+      } else {
+        setPendingReqs([]);
+      }
     } catch (e) {
       setPosts([]);
     } finally {
@@ -108,6 +115,16 @@ export default function GroupFeedScreen({ route, navigation }) {
         },
       ]
     );
+  };
+
+  const respondReq = async (userId, action) => {
+    try {
+      await api.post(`/api/groups/${groupId}/requests/${userId}/${action}`);
+      setPendingReqs((prev) => prev.filter((r) => r.userId !== userId));
+      load();
+    } catch (e) {
+      Alert.alert('Hata', e.message || 'İşlem başarısız.');
+    }
   };
 
   // Header — grup fotoğrafı, ad, üye sayısı, admin butonları
@@ -201,16 +218,41 @@ export default function GroupFeedScreen({ route, navigation }) {
 
   // Üye listesi içeriği
   const renderMembersContent = () => (
-    <View style={styles.membersList}>
-      {(group?.members || []).map((m) => (
-        <MemberRow
-          key={m.userId}
-          member={m}
-          isAdmin={isAdmin}
-          isSelf={m.userId === user?.id}
-          onKick={kickMember}
-        />
-      ))}
+    <View>
+      {isAdmin && pendingReqs.length > 0 && (
+        <View style={styles.membersList}>
+          <Text style={styles.pendingTitle}>Bekleyen İstekler ({pendingReqs.length})</Text>
+          {pendingReqs.map((r) => (
+            <View key={r.userId} style={styles.memberRow}>
+              {r.avatarUrl ? (
+                <Image source={{ uri: resolveUri(r.avatarUrl) }} style={styles.memberAvatar} />
+              ) : (
+                <View style={[styles.memberAvatar, styles.memberAvatarFallback]}>
+                  <Text style={styles.memberAvatarInitial}>{getInitial(r.displayName)}</Text>
+                </View>
+              )}
+              <View style={styles.memberInfo}><Text style={styles.memberName} numberOfLines={1}>{r.displayName}</Text></View>
+              <TouchableOpacity style={styles.approveBtn} onPress={() => respondReq(r.userId, 'approve')}>
+                <Text style={styles.approveBtnText}>Onayla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.kickBtn} onPress={() => respondReq(r.userId, 'reject')}>
+                <Ionicons name="close" size={18} color={ORANGE} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+      <View style={styles.membersList}>
+        {(group?.members || []).map((m) => (
+          <MemberRow
+            key={m.userId}
+            member={m}
+            isAdmin={isAdmin}
+            isSelf={m.userId === user?.id}
+            onKick={kickMember}
+          />
+        ))}
+      </View>
     </View>
   );
 
@@ -311,6 +353,9 @@ const styles = StyleSheet.create({
   },
   adminBadgeText: { fontSize: 11, color: '#D97706', fontWeight: '600' },
   kickBtn: { padding: 8 },
+  pendingTitle: { fontSize: 13, fontWeight: '700', color: GREEN, paddingTop: 12, paddingBottom: 4 },
+  approveBtn: { backgroundColor: GREEN, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, marginRight: 4 },
+  approveBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   // Geri butonu
   backBtn: {

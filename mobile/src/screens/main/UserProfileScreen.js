@@ -126,7 +126,7 @@ export default function UserProfileScreen({ route, navigation }) {
           {posts.map((p) => {
             const img = resolveUri(p.imageUrl);
             return (
-              <TouchableOpacity key={p.id} style={styles.postCell} activeOpacity={0.85}>
+              <TouchableOpacity key={p.id} style={styles.postCell} activeOpacity={0.85} onPress={() => navigation.navigate('Comments', { postId: p.id })}>
                 {img
                   ? <Image source={{ uri: img }} style={styles.postImg} />
                   : <View style={styles.postImgPlaceholder}>

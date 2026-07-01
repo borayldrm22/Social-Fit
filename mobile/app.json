@@ -23,7 +23,13 @@
       "package": "com.socialfit.app"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Yakınındaki grupları haritada göstermek için konumunu kullanır."
+        }
+      ]
     ]
   }
 }

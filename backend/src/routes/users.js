@@ -92,6 +92,7 @@ router.patch(
   [
     body('goal').optional().isIn(GOAL_VALUES),
     body('age').optional().isInt({ min: 1, max: 150 }),
+    body('gender').optional().isIn(['male', 'female', 'other']),
     body('weightKg').optional().isFloat({ min: 0 }),
     body('heightCm').optional().isFloat({ min: 0 }),
     body('dailyCalorieGoal').optional().isInt({ min: 0 }),
@@ -104,10 +105,11 @@ router.patch(
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-      const { goal, age, weightKg, heightCm, dailyCalorieGoal, onboardingCompleted, onboardingData } = req.body;
+      const { goal, age, gender, weightKg, heightCm, dailyCalorieGoal, onboardingCompleted, onboardingData } = req.body;
       const data = {};
       if (goal !== undefined) data.goal = goal;
       if (age !== undefined) data.age = age;
+      if (gender !== undefined) data.gender = gender;
       if (weightKg !== undefined) data.weightKg = weightKg;
       if (heightCm !== undefined) data.heightCm = heightCm;
       if (dailyCalorieGoal !== undefined) data.dailyCalorieGoal = dailyCalorieGoal;
@@ -160,13 +162,14 @@ router.patch(
     body('heightCm').optional().isFloat({ min: 0 }),
     body('dailyCalorieGoal').optional().isInt({ min: 0 }),
     body('goalNote').optional().trim(),
+    body('gender').optional().isIn(['male', 'female', 'other']),
     body('kvkkConsent').optional().isBoolean(),
   ],
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-      const allowed = ['displayName', 'weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote'];
+      const allowed = ['displayName', 'weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote', 'gender'];
       const data = {};
       for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
       // isPublic toggle
