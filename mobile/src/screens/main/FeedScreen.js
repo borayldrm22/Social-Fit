@@ -50,6 +50,7 @@ function mapPost(p) {
     likes: p._count?.likes ?? 0,
     comments: p._count?.comments ?? 0,
     liked: !!p.liked,
+    saved: !!p.saved,
     hasImage: !!imageUrl,
     imageUrl,
   };
@@ -107,7 +108,7 @@ function PostCard({ item, onLike, onComment, onShare, onOpenProfile, onMenu, onB
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <TouchableOpacity hitSlop={8} onPress={() => onBookmark(item)}>
-          <Ionicons name="bookmark-outline" size={20} color="#6B7280" />
+          <Ionicons name={item.saved ? 'bookmark' : 'bookmark-outline'} size={20} color={item.saved ? colors.primary : '#6B7280'} />
         </TouchableOpacity>
       </View>
     </View>
@@ -152,6 +153,15 @@ export default function FeedScreen({ navigation }) {
     });
   }, [api]);
 
+  const toggleBookmark = useCallback((post) => {
+    const saved = !post.saved;
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, saved } : p)));
+    const req = saved ? api.post(`/api/posts/${post.id}/save`) : api.delete(`/api/posts/${post.id}/save`);
+    req.catch(() => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, saved: !saved } : p)));
+    });
+  }, [api]);
+
   const openComments = useCallback((post) => navigation.navigate('Comments', { postId: post.id }), [navigation]);
   const openProfile = useCallback((post) => { if (post.userId) navigation.navigate('UserProfile', { userId: post.userId }); }, [navigation]);
   const sharePost = useCallback((post) => { Share.share({ message: `${post.text || 'Social Fit paylaşımı'}\n\n— Social Fit 🌿` }).catch(() => {}); }, []);
@@ -188,7 +198,7 @@ export default function FeedScreen({ navigation }) {
             onShare={sharePost}
             onOpenProfile={openProfile}
             onMenu={() => comingSoon('Gönderi seçenekleri')}
-            onBookmark={() => comingSoon('Kaydet')}
+            onBookmark={toggleBookmark}
           />
         )}
         ListEmptyComponent={

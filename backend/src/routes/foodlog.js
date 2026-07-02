@@ -6,7 +6,6 @@ const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
-const { awardPoints } = require('../services/starService');
 const { recordStreak } = require('./streaks');
 const foods = require('../data/foods');
 
@@ -72,7 +71,7 @@ router.post(
         },
       });
 
-      await awardPoints(req.user.id, 5, 'post_created', String(foodLog.id));
+      // Streak + günlük yıldız puanı (günde max 1 — recordStreak içinde)
       await recordStreak(req.user.id);
 
       res.status(201).json(foodLog);

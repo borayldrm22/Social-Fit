@@ -7,6 +7,7 @@ const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds } = require('../lib/streakStats');
 const { awardPoints } = require('../services/starService');
+const { recordStreak } = require('./streaks');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -29,6 +30,35 @@ function parseMetadata(s) {
   if (s == null) return null;
   if (typeof s === 'object') return s;
   try { return s ? JSON.parse(s) : null; } catch (_) { return null; }
+}
+
+async function decoratePosts(items, viewerId) {
+  const authorIds = items.map((p) => p.user.id);
+  const postIds = items.map((p) => p.id);
+  const [starPointsMap, likes, savedPosts] = await Promise.all([
+    getStarPointsForUserIds(prisma, authorIds),
+    prisma.like.findMany({
+      where: { userId: viewerId, postId: { in: postIds } },
+      select: { postId: true },
+    }),
+    prisma.savedPost.findMany({
+      where: { userId: viewerId, postId: { in: postIds } },
+      select: { postId: true },
+    }),
+  ]);
+  const likedIds = new Set(likes.map((like) => like.postId));
+  const savedIds = new Set(savedPosts.map((saved) => saved.postId));
+  return items.map((p) => {
+    const user = { ...p.user, starPoints: starPointsMap[p.user.id] ?? 0 };
+    return {
+      ...p,
+      user,
+      tags: parseTags(p.tags),
+      metadata: parseMetadata(p.metadata),
+      liked: likedIds.has(p.id),
+      saved: savedIds.has(p.id),
+    };
+  });
 }
 
 // Feed: posts from friends + own (or global for MVP)
@@ -60,18 +90,8 @@ router.get('/feed', async (req, res, next) => {
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
     const nextCursor = hasMore ? items[items.length - 1].id : null;
-    const authorIds = items.map((p) => p.user.id);
-    const starPointsMap = await getStarPointsForUserIds(prisma, authorIds);
-    const withLiked = await Promise.all(
-      items.map(async (p) => {
-        const like = await prisma.like.findUnique({
-          where: { userId_postId: { userId: req.user.id, postId: p.id } },
-        });
-        const user = { ...p.user, starPoints: starPointsMap[p.user.id] ?? 0 };
-        return { ...p, user, tags: parseTags(p.tags), metadata: parseMetadata(p.metadata), liked: !!like };
-      })
-    );
-    res.json({ posts: withLiked, nextCursor });
+    const decoratedPosts = await decoratePosts(items, req.user.id);
+    res.json({ posts: decoratedPosts, nextCursor });
   } catch (e) {
     next(e);
   }
@@ -121,18 +141,31 @@ router.get('/discover', async (req, res, next) => {
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
     const nextCursor = hasMore ? items[items.length - 1].id : null;
-    const authorIds = items.map((p) => p.user.id);
-    const starPointsMap = await getStarPointsForUserIds(prisma, authorIds);
-    const withLiked = await Promise.all(
-      items.map(async (p) => {
-        const like = await prisma.like.findUnique({
-          where: { userId_postId: { userId: req.user.id, postId: p.id } },
-        });
-        const user = { ...p.user, starPoints: starPointsMap[p.user.id] ?? 0 };
-        return { ...p, user, tags: parseTags(p.tags), metadata: parseMetadata(p.metadata), liked: !!like };
-      })
-    );
-    res.json({ posts: withLiked, nextCursor });
+    const decoratedPosts = await decoratePosts(items, req.user.id);
+    res.json({ posts: decoratedPosts, nextCursor });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Saved posts
+router.get('/saved', async (req, res, next) => {
+  try {
+    const savedRows = await prisma.savedPost.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        post: {
+          include: {
+            user: { select: { id: true, profile: true } },
+            _count: { select: { likes: true, comments: true } },
+          },
+        },
+      },
+    });
+    const posts = savedRows.map((row) => ({ ...row.post, savedAt: row.createdAt }));
+    const decoratedPosts = await decoratePosts(posts, req.user.id);
+    res.json({ posts: decoratedPosts });
   } catch (e) {
     next(e);
   }
@@ -174,9 +207,9 @@ router.post(
           user: { select: { id: true, profile: true } },
         },
       });
-      // awardPoints is non-fatal — don't let it kill the response
-      awardPoints(req.user.id, 5, 'post_created', post.id).catch((e) =>
-        console.error('[awardPoints] failed:', e.message)
+      // Streak + günlük yıldız puanı (günde max 1, recordStreak içinde) — non-fatal
+      recordStreak(req.user.id).catch((e) =>
+        console.error('[recordStreak] failed:', e.message)
       );
       res.status(201).json({ ...post, tags: tagsArr, metadata: metadataObj });
     } catch (e) {
@@ -227,6 +260,40 @@ router.delete('/:id/like', async (req, res, next) => {
     res.json({ liked: false });
   } catch (e) {
     if (e.code === 'P2025') return res.json({ liked: false });
+    next(e);
+  }
+});
+
+// Save post
+router.post('/:id/save', async (req, res, next) => {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
+    if (!post) return res.status(404).json({ error: 'Gönderi bulunamadı' });
+    await prisma.savedPost.create({
+      data: { userId: req.user.id, postId: req.params.id },
+    });
+    res.json({ saved: true });
+  } catch (e) {
+    if (e.code === 'P2002') {
+      res.json({ saved: true });
+      return;
+    }
+    next(e);
+  }
+});
+
+// Unsave post
+router.delete('/:id/save', async (req, res, next) => {
+  try {
+    await prisma.savedPost.delete({
+      where: { userId_postId: { userId: req.user.id, postId: req.params.id } },
+    });
+    res.json({ saved: false });
+  } catch (e) {
+    if (e.code === 'P2025') return res.json({ saved: false });
     next(e);
   }
 });

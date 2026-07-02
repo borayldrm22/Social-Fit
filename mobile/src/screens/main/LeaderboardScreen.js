@@ -122,7 +122,12 @@ export default function LeaderboardScreen({ navigation }) {
           {/* Ödül */}
           <View style={styles.prize}>
             <Text style={{ fontSize: 22 }}>🎁</Text>
-            <Text style={styles.prizeText}>Ayın birincisine: <Text style={{ fontFamily: font.bodyBold, color: colors.ink }}>ücretsiz diyet planı + sponsor ürün</Text></Text>
+            <Text style={styles.prizeText}>Ay sonunda <Text style={{ fontFamily: font.bodyBold, color: colors.ink }}>ilk 3'e promosyon ödülleri</Text> — sıralamada yüksel!</Text>
+          </View>
+
+          {/* Puan kuralları */}
+          <View style={styles.rulesNote}>
+            <Text style={styles.rulesText}>Günlük paylaşım <Text style={styles.rulesStrong}>+20</Text>  ·  7 gün seri <Text style={styles.rulesStrong}>+50</Text>  ·  her grup <Text style={styles.rulesStrong}>+10</Text></Text>
           </View>
 
           {/* Liste */}
@@ -172,6 +177,9 @@ const styles = StyleSheet.create({
   barNum: { fontFamily: font.displayBold, fontSize: 24, color: colors.white },
   prize: { flexDirection: 'row', alignItems: 'center', gap: 11, marginHorizontal: 16, marginTop: 14, backgroundColor: colors.amberTint, borderWidth: 1, borderColor: '#FBE6BC', borderRadius: 16, padding: 12 },
   prizeText: { flex: 1, fontSize: 12, color: '#9A7420', fontFamily: font.body, lineHeight: 18 },
+  rulesNote: { marginHorizontal: 16, marginTop: 8, backgroundColor: colors.mintSoft, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' },
+  rulesText: { fontSize: 11, color: colors.muted, fontFamily: font.body },
+  rulesStrong: { fontFamily: font.bodyBold, color: colors.primary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, ...shadow.soft, paddingVertical: 10, paddingHorizontal: 10 },
   rank: { fontFamily: font.displayBold, fontSize: 15, color: colors.faint, width: 20, textAlign: 'center' },
   rowName: { fontFamily: font.bodyBold, fontSize: 14, color: colors.ink },

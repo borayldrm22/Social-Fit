@@ -15,6 +15,7 @@ const MENU_SECTIONS = [
     title: 'Keşfet',
     items: [
       { label: 'Blog & Makaleler', icon: 'newspaper-outline', color: '#3B82F6', bg: '#DBEAFE', screen: 'Blogs' },
+      { label: 'Kaydettiklerim', icon: 'bookmark-outline', color: GREEN, bg: GREEN_XL, screen: 'SavedPosts' },
       { label: 'Kanallar & Gruplar', icon: 'people-outline', color: '#8B5CF6', bg: '#EDE9FE', screen: 'Groups', parent: true },
       { label: 'Lider Tablosu', icon: 'trophy-outline', color: '#F59E0B', bg: '#FEF3C7', screen: 'Leaderboard' },
     ],

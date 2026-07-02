@@ -74,14 +74,11 @@ Akış: **İlgi Uyandırma → Empati → Motivasyon → Hedef Netleştirme → 
 ## Gamification Kuralları
 
 - **Streak:** Günde en az 1 paylaşım/log → +1. Atlama → 0. Gün dönüşü 00:00 local.
-- **Yıldız puanı:** Her eylem `awardPoints` ile loglanır. Güncel puan tablosu:
-  - Günlük paylaşım (post veya foodlog, günde **MAX 1**): **20** — `recordStreak` içinde merkezî verilir
-  - Haftalık seri bonusu (7/14/21… ardışık günde): **50** (`streak_weekly`)
-  - Grup katılımı: **10** (grup başına, bir kez)
-  - Yorum: 2 · beğeni alınan: 1 · arkadaş eklenen: 15 · profil tamamlama: 20 · koç randevu: 25
+- **Yıldız puanı:** Her eylem `awardPoints` ile loglanır. Eylem-puan tablosu (öneri):
+  - Post: 10, comment: 3, like: 1, foodlog: 5, daily streak bonus: 5, group challenge: 20
 - **Rozet:** 7/14/30/60/90/180/365 gün streak'te otomatik.
 - **Leaderboard:** Haftalık (Pazartesi reset), aylık (1. reset), tüm zamanlar.
-- **Aylık ödül:** Ay sonunda **ilk 3'e** promosyon ödülleri (sponsor ürün / kişisel diyet planı).
+- **Aylık ödül:** 1.'ye sponsor ürün / kişisel diyet listesi.
 - **Hile önleme:** Geriye dönük log düzenleme yasak, tek IP'den çoklu hesap kısıtı.
 
 ## Monetizasyon (Türkiye odaklı)
