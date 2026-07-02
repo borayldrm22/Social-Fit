@@ -142,6 +142,7 @@ router.get('/:id', async (req, res, next) => {
       longitude: group.longitude,
       locationName: group.locationName,
       createdBy: group.createdBy,
+      createdAt: group.createdAt,
       memberCount: group._count.members,
       myRole,
       members: group.members.map((m) => ({
