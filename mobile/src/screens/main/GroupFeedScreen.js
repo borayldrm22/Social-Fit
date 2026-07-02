@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, Image, TouchableOpacity,
   StyleSheet, Alert, RefreshControl, ScrollView,
+  Linking, Platform,
 } from 'react-native';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -58,7 +59,7 @@ export default function GroupFeedScreen({ route, navigation }) {
 
   const [group, setGroup] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [tab, setTab] = useState('posts'); // 'posts' | 'members'
+  const [tab, setTab] = useState('posts'); // 'posts' | 'members' | 'about'
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingReqs, setPendingReqs] = useState([]);
@@ -180,6 +181,14 @@ export default function GroupFeedScreen({ route, navigation }) {
             Üyeler
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'about' && styles.tabBtnActive]}
+          onPress={() => setTab('about')}
+        >
+          <Text style={[styles.tabBtnText, tab === 'about' && styles.tabBtnTextActive]}>
+            Hakkında
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -256,6 +265,97 @@ export default function GroupFeedScreen({ route, navigation }) {
     </View>
   );
 
+  // Konumu cihazın harita uygulamasında aç
+  const openLocation = () => {
+    const { latitude, longitude, locationName } = group || {};
+    if (latitude == null || longitude == null) return;
+    const label = encodeURIComponent(locationName || group?.name || 'Grup');
+    const url = Platform.select({
+      ios: `http://maps.apple.com/?ll=${latitude},${longitude}&q=${label}`,
+      android: `geo:${latitude},${longitude}?q=${latitude},${longitude}(${label})`,
+    });
+    Linking.openURL(url).catch(() => {});
+  };
+
+  // Hakkında sekmesi — açıklama + konum + grup bilgileri (düzenleme sadece admin)
+  const renderAboutContent = () => {
+    const admins = (group?.members || []).filter((m) => m.role === 'admin').map((m) => m.displayName);
+    const hasLocation = group?.latitude != null && group?.longitude != null;
+    return (
+      <View style={styles.aboutCard}>
+        <Text style={styles.aboutDesc}>
+          {group?.description?.trim() ? group.description : 'Henüz bir açıklama eklenmemiş.'}
+        </Text>
+
+        <View style={styles.aboutDivider} />
+
+        <TouchableOpacity style={styles.aboutRow} onPress={openLocation} disabled={!hasLocation} activeOpacity={0.7}>
+          <Ionicons name="location-outline" size={18} color={GREEN} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aboutRowTitle}>Konum</Text>
+            <Text style={styles.aboutRowValue}>
+              {group?.locationName?.trim() || (hasLocation ? 'Haritada işaretli' : 'Belirtilmemiş')}
+            </Text>
+          </View>
+          {hasLocation ? <Text style={styles.aboutMapLink}>Haritada Aç</Text> : null}
+        </TouchableOpacity>
+
+        <View style={styles.aboutRow}>
+          <Ionicons name={group?.isPrivate ? 'lock-closed-outline' : 'earth-outline'} size={18} color={GREEN} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aboutRowTitle}>Gizlilik</Text>
+            <Text style={styles.aboutRowValue}>
+              {group?.isPrivate ? 'Özel grup — katılım admin onayıyla' : 'Herkese açık'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Ionicons name="people-outline" size={18} color={GREEN} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aboutRowTitle}>Üyeler</Text>
+            <Text style={styles.aboutRowValue}>{group?.memberCount ?? 0} üye</Text>
+          </View>
+        </View>
+
+        {admins.length > 0 && (
+          <View style={styles.aboutRow}>
+            <Ionicons name="ribbon-outline" size={18} color={GREEN} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.aboutRowTitle}>Admin</Text>
+              <Text style={styles.aboutRowValue}>{admins.join(', ')}</Text>
+            </View>
+          </View>
+        )}
+
+        {group?.createdAt ? (
+          <View style={styles.aboutRow}>
+            <Ionicons name="calendar-outline" size={18} color={GREEN} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.aboutRowTitle}>Oluşturulma</Text>
+              <Text style={styles.aboutRowValue}>
+                {new Date(group.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {isAdmin ? (
+          <TouchableOpacity
+            style={styles.aboutEditBtn}
+            onPress={() => navigation.navigate('EditGroup', { groupId })}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="pencil-outline" size={15} color={GREEN} />
+            <Text style={styles.aboutEditText}>Hakkındayı Düzenle</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.aboutHint}>Bu bilgileri yalnızca grup adminleri düzenleyebilir.</Text>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -268,7 +368,7 @@ export default function GroupFeedScreen({ route, navigation }) {
             loading
               ? <Text style={styles.empty}>Yükleniyor...</Text>
               : <Text style={styles.empty}>Bu grupta henüz paylaşım yok.</Text>
-          ) : renderMembersContent()
+          ) : tab === 'members' ? renderMembersContent() : renderAboutContent()
         }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />
@@ -364,6 +464,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center', alignItems: 'center',
   },
+
+  // Hakkında sekmesi
+  aboutCard: { backgroundColor: '#fff', padding: 16 },
+  aboutDesc: { fontSize: 14, color: '#374151', lineHeight: 21 },
+  aboutDivider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 14 },
+  aboutRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  aboutRowTitle: { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
+  aboutRowValue: { fontSize: 14, color: '#111827', fontWeight: '600', marginTop: 1 },
+  aboutMapLink: { fontSize: 13, color: GREEN, fontWeight: '700' },
+  aboutEditBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: GREEN_XL, borderRadius: 14, paddingVertical: 12, marginTop: 14,
+  },
+  aboutEditText: { fontSize: 14, fontWeight: '700', color: GREEN },
+  aboutHint: { fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 14 },
 
   // Misc
   empty: { textAlign: 'center', padding: 32, color: '#6B7280', fontSize: 15 },
