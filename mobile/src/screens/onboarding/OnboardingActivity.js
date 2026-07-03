@@ -15,7 +15,7 @@ export default function OnboardingActivity({ navigation }) {
       routeName="OnboardingActivity"
       title="Aktivite düzeyin ne durumda?"
       subtitle="Günlük kalori hesabı için kullanılır"
-      onNext={() => navigation.navigate('OnboardingChallenge')}
+      onNext={() => navigation.navigate('OnboardingGoals')}
       nextDisabled={!activityLevel}
     >
       {ACTIVITY_OPTIONS.map((opt) => (

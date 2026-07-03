@@ -30,7 +30,7 @@ const MENU_SECTIONS = [
   {
     title: 'Hesap',
     items: [
-      { label: 'Bildirimler', icon: 'notifications-outline', color: '#EF4444', bg: '#FEE2E2', screen: 'Notifications' },
+      { label: 'Profili Düzenle', icon: 'create-outline', color: GREEN, bg: GREEN_XL, screen: 'EditProfile', tab: 'Profile' },
       { label: 'Ayarlar', icon: 'settings-outline', color: '#6B7280', bg: '#F3F4F6', screen: 'Settings' },
     ],
   },
@@ -50,7 +50,9 @@ export default function MoreScreen({ navigation }) {
   const uri = avatarUri(profile);
 
   const navigate = (item) => {
-    if (item.parent) {
+    if (item.tab) {
+      navigation.getParent()?.navigate(item.tab, { screen: item.screen });
+    } else if (item.parent) {
       navigation.getParent()?.navigate(item.screen);
     } else {
       navigation.navigate(item.screen);

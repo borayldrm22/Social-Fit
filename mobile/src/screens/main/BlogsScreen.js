@@ -7,45 +7,85 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Reuse Feed assets when available (same paths as FeedScreen.js)
+// Kart metinleri için sınırlar — içerikler bu sınırları aşmayacak şekilde yazılır,
+// böylece kartlar aynı yükseklikte durur ve açıklama yarıda "…" ile kesilmez.
+export const BLOG_TITLE_MAX = 56;
+export const BLOG_DESC_MAX = 120;
+
+export const BLOG_CATEGORIES = ['Tümü', 'Beslenme', 'Tarifler', 'Spor', 'Etkinlikler'];
+
 const MOCK_BLOGS = [
   {
     id: '1',
-    title: 'The Benefits of a Plant-Based Diet',
+    category: 'Beslenme',
+    title: 'Bitkisel Beslenmenin Faydaları',
     description:
-      'Discover how a plant-based diet can improve your health, boost energy, and promote weight loss. Click below to explore more about this lifestyle choice.',
-    imageLocal: 'salad',
+      'Bitki ağırlıklı beslenme enerji verir, kalp sağlığını destekler ve kilo kontrolüne yardımcı olur.',
+    imageLocal: 'bowl',
     body:
-      'A plant-based diet focuses on foods primarily from plants. This includes not only fruits and vegetables, but also nuts, seeds, oils, whole grains, legumes, and beans. It doesn\'t mean that you are vegetarian or vegan and never eat meat or dairy. Rather, you are proportionately choosing more of your foods from plant sources.\n\nResearch shows that plant-based diets can help with weight management, reduce the risk of heart disease, and improve overall energy levels. Many people also report better digestion and clearer skin after making the switch.',
+      'Bitkisel beslenme; sebze ve meyvelerin yanı sıra kuruyemiş, tohum, tam tahıl ve baklagilleri de kapsar. Tamamen vegan olmak zorunda değilsin — sadece tabağının çoğunu bitkisel kaynaklardan seçersin.\n\nAraştırmalar, bitki ağırlıklı beslenmenin kilo yönetimine yardımcı olduğunu, kalp hastalığı riskini azalttığını ve enerji seviyeni artırdığını gösteriyor.',
   },
   {
     id: '2',
-    title: 'Superfoods You Should Include in Your Diet',
+    category: 'Beslenme',
+    title: 'Diyetine Eklemen Gereken Süper Besinler',
     description:
-      'Learn about superfoods that can enhance your diet and improve overall wellness. From berries to nuts, find out what to add to your grocery list.',
-    imageLocal: 'fruits',
+      'Yaban mersini, ceviz, ıspanak… Antioksidan ve vitamin deposu besinlerle tabağını güçlendir.',
+    imageLocal: 'smoothie',
     body:
-      'Superfoods are nutrient-rich foods considered to be especially beneficial for health and well-being. Common superfoods include blueberries, kale, salmon, almonds, and quinoa.\n\nIncorporating a variety of these foods into your meals can provide antioxidants, healthy fats, and essential vitamins. They can support your immune system, improve heart health, and help maintain a healthy weight. Start by adding one or two to your weekly shopping list and gradually expand from there.',
+      'Süper besinler, sağlığa faydası yüksek, besin değeri yoğun gıdalardır. Yaban mersini, lahana, somon, badem ve kinoa en bilinenleri.\n\nBunları öğünlerine eklemek antioksidan, sağlıklı yağ ve temel vitaminler sağlar. Haftalık alışveriş listene bir-iki tane ekleyerek başla, zamanla çeşitlendir.',
   },
   {
     id: '3',
-    title: 'Healthy Smoothie Recipes',
+    category: 'Tarifler',
+    title: '5 Dakikada Sağlıklı Smoothie',
     description:
-      'Boost your energy with these delicious and nutritious smoothie recipes. Perfect for breakfast or a post-workout snack.',
+      'Muz, yaban mersini ve ıspanakla dakikalar içinde enerji dolu bir kahvaltı ya da ara öğün.',
     imageLocal: 'smoothie',
     body:
-      'Smoothies are a quick and easy way to pack nutrients into one drink. Start with a base of banana or avocado for creaminess, add your favorite fruits like berries or mango, and throw in some spinach or kale for extra vitamins.\n\nFor a protein boost after a workout, add Greek yogurt or a scoop of protein powder. You can also add chia seeds or flaxseed for omega-3s and fiber. Blend with milk or plant-based alternatives and enjoy immediately for the best taste and nutrition.',
+      'Smoothie, tek bardakta bol besin almanın hızlı yolu. Kıvam için muz veya avokadoyla başla, sevdiğin meyveleri ekle, biraz ıspanak at.\n\nAntrenman sonrası protein için yoğurt veya protein tozu ekleyebilirsin. Chia veya keten tohumu omega-3 ve lif katar. Süt ya da bitkisel alternatifle çırp ve hemen iç.',
+  },
+  {
+    id: '4',
+    category: 'Spor',
+    title: 'Evde 20 Dakikalık HIIT Antrenmanı',
+    description:
+      'Ekipmansız, yüksek tempolu bu antrenmanla yağ yak ve dayanıklılığını artır.',
+    imageLocal: 'runner',
+    body:
+      'HIIT, kısa yüksek tempolu hareketlerle kısa dinlenmeleri birleştirir. 20 dakikada, ekipman olmadan, evde yapabilirsin.\n\n40 saniye çalış, 20 saniye dinlen: jumping jack, squat, mountain climber ve plank döngüsünü tekrarla. Isınmayı ve soğumayı atlama.',
+  },
+  {
+    id: '5',
+    category: 'Spor',
+    title: 'Yeni Başlayanlar için Koşu Rehberi',
+    description:
+      'Doğru tempo, nefes ve ısınma ile ilk 5K’na hazırlan; sakatlanmadan ilerle.',
+    imageLocal: 'runner',
+    body:
+      'Koşuya yeni başlıyorsan yürü-koş yöntemiyle başla: 1 dakika koş, 2 dakika yürü. Zamanla koşu süresini artır.\n\nRahat konuşabildiğin bir tempo tut, her antrenman öncesi ısın ve sonrası esne. Haftada 3 gün, dinlenme günleriyle ilerle.',
+  },
+  {
+    id: '6',
+    category: 'Etkinlikler',
+    title: '30 Günlük Su İçme Challenge’ı',
+    description:
+      'Toplulukla birlikte her gün su hedefini tuttur, streak’ini büyüt ve ödüller kazan.',
+    imageLocal: 'bowl',
+    body:
+      'Yeterli su içmek enerji, cilt ve sindirim için kritik. Bu challenge’da 30 gün boyunca günlük su hedefini tutturuyorsun.\n\nHer tamamladığın gün streak’ini büyütür ve yıldız kazandırır. Topluluk kanalından ilerlemeni paylaş, birbirinizi motive edin.',
   },
 ];
 
-// Reuse Feed assets when available (same paths as FeedScreen.js)
+// Yerel görsel havuzu (mevcut asset'ler yeniden kullanılır)
 const BLOG_IMAGES = {
-  salad: require('../../../assets/smoothie-bowl.png'),
-  fruits: require('../../../assets/chicken-rice-bowl.png'),
-  smoothie: require('../../../assets/runner.png'),
+  bowl: require('../../../assets/chicken-rice-bowl.png'),
+  smoothie: require('../../../assets/smoothie-bowl.png'),
+  runner: require('../../../assets/runner.png'),
 };
 
 export function getBlogById(id) {
@@ -60,16 +100,19 @@ export function getBlogImage(item) {
 
 export default function BlogsScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [category, setCategory] = useState('Tümü');
 
   const filteredBlogs = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_BLOGS;
     const q = searchQuery.trim().toLowerCase();
-    return MOCK_BLOGS.filter(
-      (b) =>
+    return MOCK_BLOGS.filter((b) => {
+      const matchCat = category === 'Tümü' || b.category === category;
+      const matchSearch =
+        !q ||
         b.title.toLowerCase().includes(q) ||
-        b.description.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+        b.description.toLowerCase().includes(q);
+      return matchCat && matchSearch;
+    });
+  }, [searchQuery, category]);
 
   const renderCard = ({ item }) => {
     const imageSource = getBlogImage(item);
@@ -82,8 +125,9 @@ export default function BlogsScreen({ navigation }) {
             <Ionicons name="newspaper-outline" size={48} color="#9ca3af" />
           </View>
         )}
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardDescription} numberOfLines={3}>
+        <View style={styles.catBadge}><Text style={styles.catBadgeText}>{item.category}</Text></View>
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.cardDescription} numberOfLines={2}>
           {item.description}
         </Text>
         <TouchableOpacity
@@ -91,7 +135,7 @@ export default function BlogsScreen({ navigation }) {
           onPress={() => navigation.navigate('BlogDetail', { blogId: item.id, item })}
           activeOpacity={0.8}
         >
-          <Text style={styles.readMoreText}>Read More</Text>
+          <Text style={styles.readMoreText}>Devamını Oku</Text>
         </TouchableOpacity>
       </View>
     );
@@ -104,12 +148,31 @@ export default function BlogsScreen({ navigation }) {
           <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder="Ara..."
             placeholderTextColor="#9ca3af"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          {BLOG_CATEGORIES.map((cat) => {
+            const active = cat === category;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setCategory(cat)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
       <FlatList
         data={filteredBlogs}
@@ -117,7 +180,7 @@ export default function BlogsScreen({ navigation }) {
         renderItem={renderCard}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>No blogs match your search.</Text>
+          <Text style={styles.empty}>Bu kategoride yazı bulunamadı.</Text>
         }
       />
     </View>
@@ -136,6 +199,13 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 16, color: '#111827' },
+  chipsRow: { gap: 8, paddingTop: 10, paddingRight: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: '#f3f4f6' },
+  chipActive: { backgroundColor: '#2d6a4f' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  chipTextActive: { color: '#fff' },
+  catBadge: { alignSelf: 'flex-start', marginHorizontal: 16, marginTop: 12, backgroundColor: '#D8F3DC', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  catBadgeText: { fontSize: 11, fontWeight: '700', color: '#2d6a4f' },
   listContent: { padding: 16, paddingBottom: 24 },
   card: {
     backgroundColor: '#fff',
@@ -161,7 +231,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2d6a4f',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 8,
   },
   cardDescription: {
     fontSize: 14,

@@ -17,6 +17,9 @@ import OnboardingProgress from '../../components/onboarding/ProgressBar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { persistOnboardingComplete } from '../../onboarding/submitOnboarding';
 import { useOnboardingExit } from '../../context/OnboardingExitContext';
+import { useOnboardingStore } from '../../store/onboardingStore';
+import { ONBOARDING_ROUTE_STEP, ONBOARDING_TOTAL_STEPS } from '../../onboarding/constants';
+import * as Haptics from 'expo-haptics';
 
 const GROUP_PLACEHOLDER_COLORS = ['#2d6a4f', '#1e40af', '#7c3aed'];
 
@@ -41,12 +44,19 @@ export default function OnboardingSocialStep({ navigation }) {
   const api = useApi();
   const { refreshUser } = useAuth();
   const { dismissParentOnComplete } = useOnboardingExit();
+  const channelChoice = useOnboardingStore((s) => s.channelChoice);
+  const setChannelChoice = useOnboardingStore((s) => s.setChannelChoice);
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [followedIds, setFollowedIds] = useState(new Set());
   const [joinedIds, setJoinedIds] = useState(new Set());
+
+  const selectChoice = (choice) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setChannelChoice(choice);
+  };
 
   React.useEffect(() => {
     let cancelled = false;
@@ -73,23 +83,34 @@ export default function OnboardingSocialStep({ navigation }) {
     };
   }, [api]);
 
-  const followUser = async (userId) => {
+  // Optimistic: seçim anında UI'a yansır, API arka planda; hata olursa geri alınır.
+  const followUser = (userId) => {
     if (followedIds.has(userId)) return;
-    try {
-      await api.post('/api/users/friends', { friendId: userId });
-      setFollowedIds((prev) => new Set([...prev, userId]));
-    } catch (e) {}
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setFollowedIds((prev) => new Set([...prev, userId]));
+    api.post('/api/users/friends', { friendId: userId }).catch(() => {
+      setFollowedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(userId);
+        return n;
+      });
+    });
   };
 
-  const joinGroup = async (groupId) => {
+  const joinGroup = (groupId) => {
     if (joinedIds.has(groupId)) return;
-    try {
-      await api.post(`/api/groups/${groupId}/join`);
-      setJoinedIds((prev) => new Set([...prev, groupId]));
-    } catch (e) {}
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setJoinedIds((prev) => new Set([...prev, groupId]));
+    api.post(`/api/groups/${groupId}/join`).catch(() => {
+      setJoinedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(groupId);
+        return n;
+      });
+    });
   };
 
-  const canFinish = followedIds.size >= 1 || joinedIds.size >= 1;
+  const canFinish = channelChoice === 'create' || followedIds.size >= 1 || joinedIds.size >= 1;
 
   const completeOnboarding = useCallback(async () => {
     setSubmitting(true);
@@ -116,18 +137,39 @@ export default function OnboardingSocialStep({ navigation }) {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#22C55E" />
+        <ActivityIndicator size="large" color="#157A52" />
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <OnboardingProgress step={13} total={13} onBack={() => navigation.goBack()} canGoBack />
+      <OnboardingProgress
+        step={ONBOARDING_ROUTE_STEP.OnboardingSocial}
+        total={ONBOARDING_TOTAL_STEPS}
+        onBack={() => navigation.goBack()}
+        canGoBack
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Topluluğa katıl</Text>
-        <Text style={styles.subtitle}>En az 1 kişiyi takip et veya bir gruba katıl</Text>
+        <Text style={styles.title}>Bir kanala katıl veya kendini kur</Text>
+        <Text style={styles.subtitle}>Sana uygun olanı seç — istediğin zaman değiştirebilirsin</Text>
 
+        {/* Katıl seçeneği */}
+        <TouchableOpacity
+          style={[styles.choice, channelChoice === 'join' && styles.choiceActive]}
+          onPress={() => selectChoice('join')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.choiceEmoji}>🔍</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.choiceTitle}>Bir kanala katıl</Text>
+            <Text style={styles.choiceSub}>Önerilen kişi ve gruplara göz at</Text>
+          </View>
+          <Ionicons name={channelChoice === 'join' ? 'chevron-up' : 'chevron-down'} size={20} color="#6b7280" />
+        </TouchableOpacity>
+
+        {channelChoice === 'join' && (
+        <View style={styles.accordion}>
         <Text style={styles.sectionTitle}>Önerilen Kişiler</Text>
         <ScrollView
           horizontal
@@ -207,6 +249,30 @@ export default function OnboardingSocialStep({ navigation }) {
             </View>
           );
         })}
+        </View>
+        )}
+
+        {/* Kur seçeneği */}
+        <TouchableOpacity
+          style={[styles.choice, channelChoice === 'create' && styles.choiceActive]}
+          onPress={() => selectChoice('create')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.choiceEmoji}>✨</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.choiceTitle}>Kendi kanalını kur</Text>
+            <Text style={styles.choiceSub}>Kendi topluluğunu oluştur</Text>
+          </View>
+          <Ionicons name={channelChoice === 'create' ? 'chevron-up' : 'chevron-down'} size={20} color="#6b7280" />
+        </TouchableOpacity>
+
+        {channelChoice === 'create' && (
+          <View style={styles.accordion}>
+            <Text style={styles.createNote}>
+              Harika! Kaydını tamamladıktan sonra ana ekrandaki “+” ile kendi kanalını oluşturabilirsin — sana adım adım rehberlik edeceğiz. 🚀
+            </Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.primaryButton, (!canFinish || submitting) && styles.primaryButtonDisabled]}
@@ -251,6 +317,13 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 24,
   },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 14, borderWidth: 2, borderColor: '#e5e7eb', backgroundColor: '#fff', marginBottom: 10 },
+  choiceActive: { borderColor: '#157A52', backgroundColor: '#f0fdf4' },
+  choiceEmoji: { fontSize: 24 },
+  choiceTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  choiceSub: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  accordion: { marginBottom: 4 },
+  createNote: { fontSize: 15, color: '#374151', lineHeight: 22, backgroundColor: '#f0fdf4', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#d1fae5', marginBottom: 8 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -273,7 +346,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   userCardFollowed: {
-    borderColor: '#22C55E',
+    borderColor: '#157A52',
     backgroundColor: '#f0fdf4',
   },
   userAvatar: {
@@ -286,7 +359,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#157A52',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -319,7 +392,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#157A52',
   },
   followedChipText: {
     fontSize: 11,
@@ -364,7 +437,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#157A52',
   },
   joinButtonDone: {
     backgroundColor: '#d1fae5',
@@ -378,7 +451,7 @@ const styles = StyleSheet.create({
     color: '#166534',
   },
   primaryButton: {
-    backgroundColor: '#22C55E',
+    backgroundColor: '#157A52',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',

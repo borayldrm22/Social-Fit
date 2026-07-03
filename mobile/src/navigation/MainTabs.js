@@ -253,7 +253,7 @@ export default function MainTabs() {
           tabBarActiveTintColor: '#157A52',
           tabBarInactiveTintColor: '#93A299',
           tabBarStyle: { backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E6EBE5' },
-          tabBarLabelStyle: { fontSize: 12 },
+          tabBarShowLabel: false,
         })}
       >
         <Tab.Screen

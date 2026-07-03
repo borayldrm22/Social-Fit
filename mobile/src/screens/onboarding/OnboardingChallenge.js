@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 export default function OnboardingChallenge({ navigation }) {
   const challenges = useOnboardingStore((s) => s.challenges);
   const setChallenges = useOnboardingStore((s) => s.setChallenges);
+  const runNutritionPlan = useOnboardingStore((s) => s.runNutritionPlan);
 
   const onToggle = useCallback(
     (id) => {
@@ -28,7 +29,10 @@ export default function OnboardingChallenge({ navigation }) {
       routeName="OnboardingChallenge"
       title="Sağlığınla ilgili en çok zorlandığın konu nedir?"
       subtitle="Birden fazla seçebilirsin"
-      onNext={() => navigation.navigate('OnboardingChannels')}
+      onNext={() => {
+        runNutritionPlan();
+        navigation.navigate('OnboardingResult');
+      }}
       nextDisabled={challenges.length < 1}
     >
       <MultiSelectGrid options={CHALLENGE_OPTIONS} selectedIds={challenges} onToggle={onToggle} columns={1} />

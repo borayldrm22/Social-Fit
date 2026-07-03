@@ -46,6 +46,7 @@ export default function LeaderboardScreen({ navigation }) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState('month');
+  const [scope, setScope] = useState('global');
   const [data, setData] = useState({ top: [], rest: [], me: null });
   const [loading, setLoading] = useState(true);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function LeaderboardScreen({ navigation }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/leaderboard?period=${period}`);
+      const res = await api.get(`/api/leaderboard?period=${period}&scope=${scope}`);
       const list = Array.isArray(res?.leaderboard) ? res.leaderboard : [];
       const toRow = (e) => ({ rank: e.rank, userId: e.userId, name: e.displayName || 'Kullanıcı', avatarUrl: e.avatarUrl, pts: e.totalPoints ?? 0, streak: e.currentStreak ?? 0 });
       const byRank = Object.fromEntries(list.map((e) => [e.rank, toRow(e)]));
@@ -66,7 +67,7 @@ export default function LeaderboardScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [api, period, user]);
+  }, [api, period, scope, user]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const openUser = (userId) => {
@@ -81,9 +82,18 @@ export default function LeaderboardScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={10}>
             <Ionicons name="chevron-back" size={24} color={colors.ink} />
           </TouchableOpacity>
-          <Text style={styles.title}>Liderlik 🏆</Text>
+          <Text style={styles.title}>Liderlik</Text>
         </View>
         <View style={styles.monthPill}><Text style={styles.monthText}>{MONTHS[new Date().getMonth()]}</Text></View>
+      </View>
+
+      <View style={styles.scopeRow}>
+        {[['global', 'Genel', 'earth'], ['friends', 'Arkadaşlar', 'people']].map(([k, label, icon]) => (
+          <TouchableOpacity key={k} style={[styles.scopePill, scope === k && styles.scopePillActive]} onPress={() => setScope(k)} activeOpacity={0.85}>
+            <Ionicons name={icon} size={15} color={scope === k ? colors.white : colors.muted} />
+            <Text style={[styles.scopeText, { color: scope === k ? colors.white : colors.muted }]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.segment}>
@@ -98,8 +108,8 @@ export default function LeaderboardScreen({ navigation }) {
         <ActivityIndicator color={colors.primary} size="large" style={{ marginTop: 50 }} />
       ) : data.top.length === 0 && data.rest.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={{ fontSize: 40 }}>🏆</Text>
-          <Text style={styles.emptyText}>Henüz sıralama verisi yok</Text>
+          <Ionicons name="trophy-outline" size={40} color={colors.faint} />
+          <Text style={styles.emptyText}>{scope === 'friends' ? 'Arkadaşların henüz sıralamada değil' : 'Henüz sıralama verisi yok'}</Text>
         </View>
       ) : (
         <>
@@ -123,7 +133,7 @@ export default function LeaderboardScreen({ navigation }) {
 
           {/* Ödül */}
           <View style={styles.prize}>
-            <Text style={{ fontSize: 22 }}>🎁</Text>
+            <Ionicons name="gift-outline" size={22} color={colors.amberDark} />
             <Text style={styles.prizeText}>Ay sonunda <Text style={{ fontFamily: font.bodyBold, color: colors.ink }}>ilk 3'e promosyon ödülleri</Text> — sıralamada yüksel!</Text>
           </View>
 
@@ -144,7 +154,12 @@ export default function LeaderboardScreen({ navigation }) {
                 <Avatar name={r.name} uri={resolveUri(r.avatarUrl)} color={avatarColor(r.name)} size={40} radius={14} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowName} numberOfLines={1}>{r.name}</Text>
-                  {r.streak > 0 ? <Text style={styles.rowStreak}>🔥 {r.streak} gün</Text> : null}
+                  {r.streak > 0 ? (
+                    <View style={styles.rowStreakWrap}>
+                      <Ionicons name="flame" size={12} color={colors.coral} />
+                      <Text style={styles.rowStreak}>{r.streak} gün</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.rowPts}>{r.pts.toLocaleString('tr-TR')}</Text>
               </TouchableOpacity>
@@ -187,6 +202,10 @@ const styles = StyleSheet.create({
   segItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
   segActive: { backgroundColor: colors.surface, ...shadow.soft },
   segText: { fontFamily: font.bodyBold, fontSize: 13 },
+  scopeRow: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 12, marginBottom: 4 },
+  scopePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: '#E9EFE9' },
+  scopePillActive: { backgroundColor: colors.primary },
+  scopeText: { fontFamily: font.bodyBold, fontSize: 13 },
   podium: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginHorizontal: 16, marginTop: 18 },
   pName: { fontFamily: font.bodyBold, fontSize: 13, color: colors.ink, marginTop: 7 },
   pPts: { fontFamily: font.displayBold, fontSize: 15, color: colors.muted },
@@ -206,7 +225,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, ...shadow.soft, paddingVertical: 10, paddingHorizontal: 10 },
   rank: { fontFamily: font.displayBold, fontSize: 15, color: colors.faint, width: 20, textAlign: 'center' },
   rowName: { fontFamily: font.bodyBold, fontSize: 14, color: colors.ink },
-  rowStreak: { fontSize: 11, color: colors.coralDark, fontFamily: font.bodyBold, marginTop: 2 },
+  rowStreakWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  rowStreak: { fontSize: 11, color: colors.coralDark, fontFamily: font.bodyBold },
   rowPts: { fontFamily: font.displayBold, fontSize: 15, color: colors.muted },
   meRow: { backgroundColor: colors.primary, ...shadow.cta },
   empty: { alignItems: 'center', marginTop: 50, gap: 10 },

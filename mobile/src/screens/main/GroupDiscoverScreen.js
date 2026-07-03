@@ -27,7 +27,6 @@ export default function GroupDiscoverScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [joiningId, setJoiningId] = useState(null);
 
   const load = useCallback(() => {
     let cancelled = false;
@@ -40,21 +39,21 @@ export default function GroupDiscoverScreen({ navigation }) {
   }, [api]);
   useFocusEffect(useCallback(() => load(), [load]));
 
-  const join = async (g) => {
-    setJoiningId(g.id);
-    try {
-      const res = await api.post(`/api/groups/${g.id}/join`);
-      if (res.status === 'pending') {
-        setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, pending: true } : x)));
-        Alert.alert('İstek gönderildi', 'Grup admini onayladığında katılacaksın.');
-      } else {
-        setGroups((prev) => prev.filter((x) => x.id !== g.id));
-        Alert.alert('Katıldın 🎉', `"${g.name}" grubuna katıldın.`);
-      }
-    } catch (e) {
-      Alert.alert('Hata', e.message || 'Gruba katılınamadı.');
-    } finally {
-      setJoiningId(null);
+  // Optimistic: dokununca anında yansır (özel grup → "İstendi", herkese açık → listeden çıkar),
+  // API arka planda; hata olursa geri alınır.
+  const join = (g) => {
+    if (g.isPrivate) {
+      setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, pending: true } : x)));
+      api.post(`/api/groups/${g.id}/join`).catch((e) => {
+        setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, pending: false } : x)));
+        Alert.alert('Hata', e.message || 'İstek gönderilemedi.');
+      });
+    } else {
+      setGroups((prev) => prev.filter((x) => x.id !== g.id));
+      api.post(`/api/groups/${g.id}/join`).catch((e) => {
+        setGroups((prev) => [g, ...prev]);
+        Alert.alert('Hata', e.message || 'Gruba katılınamadı.');
+      });
     }
   };
 
@@ -82,14 +81,11 @@ export default function GroupDiscoverScreen({ navigation }) {
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.joinBtn, joiningId === item.id && { opacity: 0.6 }]}
+            style={styles.joinBtn}
             onPress={() => join(item)}
-            disabled={joiningId === item.id}
             activeOpacity={0.85}
           >
-            {joiningId === item.id
-              ? <ActivityIndicator color={colors.white} size="small" />
-              : <Text style={styles.joinText}>{item.isPrivate ? 'İstek Gönder' : 'Katıl'}</Text>}
+            <Text style={styles.joinText}>{item.isPrivate ? 'İstek Gönder' : 'Katıl'}</Text>
           </TouchableOpacity>
         )}
       </View>

@@ -18,7 +18,7 @@ export default function OnboardingWelcome({ navigation }) {
 
   const onSubmit = ({ username: u }) => {
     setUsername(u.trim());
-    navigation.navigate('OnboardingGoals');
+    navigation.navigate('OnboardingProfile');
   };
 
   return (
@@ -32,7 +32,7 @@ export default function OnboardingWelcome({ navigation }) {
       nextDisabled={!ok}
       canGoBack={false}
     >
-      <Text style={[styles.hint, { color: c.textSecondary }]}>Sana nasıl seslenelim?</Text>
+      <Text style={[styles.hint, { color: c.textSecondary }]}>Adın ve soyadın</Text>
       <Controller
         control={control}
         name="username"
@@ -47,14 +47,14 @@ export default function OnboardingWelcome({ navigation }) {
                 color: c.text,
               },
             ]}
-            placeholder="İsim veya takma ad"
+            placeholder="Adın Soyadın"
             placeholderTextColor="#94a3b8"
             value={value}
             onBlur={onBlur}
             onChangeText={onChange}
-            autoCapitalize="sentences"
+            autoCapitalize="words"
             autoCorrect={false}
-            accessibilityLabel="Kullanıcı adı"
+            accessibilityLabel="Ad Soyad"
           />
         )}
       />
