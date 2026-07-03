@@ -60,7 +60,20 @@ function currentStreakFromRecords(records, today) {
 router.get('/', async (req, res, next) => {
   try {
     const period = req.query.period || 'week';
+    const scope = req.query.scope === 'friends' ? 'friends' : 'global';
     const today = toDateOnly(new Date());
+
+    // Arkadaş kıyaslaması: yalnızca kabul edilmiş arkadaşlar + kullanıcının kendisi
+    let allowedIds = null;
+    if (scope === 'friends') {
+      const friendships = await prisma.friendship.findMany({
+        where: { status: 'accepted', OR: [{ userId: req.user.id }, { friendId: req.user.id }] },
+        select: { userId: true, friendId: true },
+      });
+      const ids = new Set([req.user.id]);
+      for (const f of friendships) ids.add(f.userId === req.user.id ? f.friendId : f.userId);
+      allowedIds = ids;
+    }
 
     const weekStart = startOfWeekUTC();
     const monthStart = startOfMonthUTC();
@@ -88,7 +101,8 @@ router.get('/', async (req, res, next) => {
 
     const hasAnyData = weekGroups.length > 0 || monthGroups.length > 0 || allGroups.length > 0;
 
-    if (!hasAnyData) {
+    // Örnek tablo yalnızca global scope'ta ve hiç veri yokken gösterilir.
+    if (!hasAnyData && scope !== 'friends') {
       return res.json({
         period,
         leaderboard: EXAMPLE_LEADERBOARD,
@@ -99,6 +113,7 @@ router.get('/', async (req, res, next) => {
 
     const periodMap = period === 'week' ? weekMap : period === 'month' ? monthMap : allMap;
     const sortedByPeriod = Object.entries(periodMap)
+      .filter(([userId]) => !allowedIds || allowedIds.has(userId))
       .sort((a, b) => b[1] - a[1]);
     const top50UserIds = sortedByPeriod.slice(0, 50).map(([userId]) => userId);
 

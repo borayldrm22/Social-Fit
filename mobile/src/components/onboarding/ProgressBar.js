@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   Pressable,
   LayoutAnimation,
   Platform,
@@ -54,6 +55,14 @@ export default function OnboardingProgress({ step, total, onBack, canGoBack = tr
         </Text>
         <View style={styles.spacer} />
       </View>
+      {/* Koşan adam → finish çizgisi */}
+      <View style={styles.lane}>
+        <Text style={styles.finish}>🏁</Text>
+        <Image
+          source={require('../../../assets/runner.png')}
+          style={[styles.runner, { left: `${pct * 100}%` }]}
+        />
+      </View>
       <View style={[styles.track, { backgroundColor: trackBg }]}>
         <View
           style={{
@@ -76,4 +85,7 @@ const styles = StyleSheet.create({
   stepLabel: { fontSize: 14, fontWeight: '600' },
   spacer: { width: 64 },
   track: { height: 6, borderRadius: 9999, overflow: 'hidden' },
+  lane: { height: 26, position: 'relative', marginBottom: 3 },
+  finish: { position: 'absolute', right: -2, bottom: 0, fontSize: 17 },
+  runner: { position: 'absolute', bottom: -1, width: 26, height: 26, marginLeft: -26, resizeMode: 'contain' },
 });

@@ -4,7 +4,8 @@ import { useForm, Controller } from 'react-hook-form';
 import OnboardingLayout from '../../components/onboarding/OnboardingLayout';
 import OptionButton from '../../components/onboarding/OptionButton';
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { useOnboardingTheme, ob } from '../../components/onboarding/onboardingStyles';
+import { useOnboardingTheme, ob, BRAND } from '../../components/onboarding/onboardingStyles';
+import { idealWeightRangeKg } from '../../utils/calculations';
 
 export default function OnboardingProfile({ navigation }) {
   const { c } = useOnboardingTheme();
@@ -56,6 +57,17 @@ export default function OnboardingProfile({ navigation }) {
     cwN <= 300 &&
     twN >= 30 &&
     twN <= 300;
+
+  // Canlı BMI sağlıklı kilo aralığı önerisi (boy girilince görünür)
+  const bmiRange = hN >= 100 && hN <= 250 ? idealWeightRangeKg(hN) : null;
+  const weightStatus =
+    bmiRange && cwN >= 30
+      ? cwN < bmiRange.min
+        ? 'below'
+        : cwN > bmiRange.max
+        ? 'above'
+        : 'ideal'
+      : null;
 
   const inputStyle = [
     ob.input,
@@ -146,6 +158,24 @@ export default function OnboardingProfile({ navigation }) {
         )}
       />
 
+      {bmiRange ? (
+        <View style={[styles.bmiCard, { backgroundColor: c.noteBg, borderColor: c.border }]}>
+          <Text style={[styles.bmiTitle, { color: c.textSecondary }]}>⚖️ Sağlıklı kilo aralığın</Text>
+          <Text style={[styles.bmiRange, { color: BRAND.primary }]}>
+            {bmiRange.min} – {bmiRange.max} kg
+          </Text>
+          {weightStatus ? (
+            <Text style={[styles.bmiStatus, { color: c.textSecondary }]}>
+              {weightStatus === 'ideal'
+                ? 'Şu an ideal aralıktasın 🎯'
+                : weightStatus === 'below'
+                ? 'Şu an bu aralığın biraz altındasın'
+                : 'Şu an bu aralığın biraz üzerindesin'}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <Text style={[styles.fieldLabel, { color: c.textSecondary }]}>Hedef kilo (kg)</Text>
       <Controller
         control={control}
@@ -172,4 +202,8 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   genderRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   genderCell: { flex: 1 },
+  bmiCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 16 },
+  bmiTitle: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  bmiRange: { fontSize: 20, fontWeight: '800' },
+  bmiStatus: { fontSize: 13, marginTop: 4 },
 });

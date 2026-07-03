@@ -117,11 +117,8 @@ export default function ProfileScreen({ navigation }) {
     >
       <LinearGradient colors={['#1B8659', colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cover, { paddingTop: insets.top + 8 }]}>
         <View style={styles.coverTop}>
-          <Text style={styles.coverTitle}>Profil</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity hitSlop={8} onPress={shareProfile}><Ionicons name="share-social-outline" size={20} color={colors.white} /></TouchableOpacity>
-            <TouchableOpacity hitSlop={8} onPress={goEditProfile}><Ionicons name="create-outline" size={20} color={colors.white} /></TouchableOpacity>
-          </View>
+          <View />
+          <TouchableOpacity hitSlop={8} onPress={shareProfile}><Ionicons name="share-social-outline" size={20} color={colors.white} /></TouchableOpacity>
         </View>
         <View style={{ alignItems: 'center', marginTop: 12 }}>
           <Avatar profile={p} size={88} style={{ borderRadius: 30, borderWidth: 4, borderColor: 'rgba(255,255,255,0.85)' }} />
@@ -245,7 +242,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   cover: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
   coverTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  coverTitle: { fontFamily: font.bodyBold, fontSize: 17, color: colors.white },
   dn: { fontFamily: font.displayBold, fontSize: 21, color: colors.white, marginTop: 11 },
   starPill: { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 11 },
   starPillText: { fontFamily: font.bodyBold, fontSize: 12, color: '#FFE9A8', fontVariant: ['tabular-nums'] },

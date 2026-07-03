@@ -17,7 +17,6 @@ export const CHALLENGE_OPTIONS = [
   { id: 'sweet_craving', label: 'Tatlı isteği' },
   { id: 'time', label: 'Zaman yetersizliği' },
   { id: 'irregular_food', label: 'Düzensiz beslenme' },
-  { id: 'environment', label: 'Çevreden etkilenme' },
 ];
 
 export const TIMELINE_OPTIONS = [
@@ -47,17 +46,17 @@ export const IDENTITY_OPTIONS = [
   { id: 'aging', label: 'Daha geç yaşlanmak istiyorum.' },
 ];
 
-export const ONBOARDING_TOTAL_STEPS = 8;
+export const ONBOARDING_TOTAL_STEPS = 7;
 
+// Yeni sıra: Ad Soyad → Vücut/BMI → Aktivite → Hedef → Zorlanma → Sonuç → Kanal
 export const ONBOARDING_ROUTE_STEP = {
   OnboardingWelcome: 1,
-  OnboardingGoals: 2,
-  OnboardingProfile: 3,
-  OnboardingActivity: 4,
+  OnboardingProfile: 2,
+  OnboardingActivity: 3,
+  OnboardingGoals: 4,
   OnboardingChallenge: 5,
-  OnboardingChannels: 6,
-  OnboardingResult: 7,
-  OnboardingSocial: 8,
+  OnboardingResult: 6,
+  OnboardingSocial: 7,
 };
 
 export const DEFAULT_FIRST_SHARE_CAPTION =

@@ -1,17 +1,16 @@
-// WelcomeScreen.js — SocialFit redesign · Karşılama (auth)
+// WelcomeScreen.js — SocialFit redesign · Açılış splash'i (auth)
 // Konum: src/screens/auth/WelcomeScreen.js
-// Logo animasyonlu açılır, ardından "Hesap Oluştur / Giriş Yap" alanı aşağıdan belirir.
+// Logo animasyonla belirir, ~1.6sn sonra doğrudan Giriş ekranına geçer.
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, font, shadow } from '../../theme/socialFitTheme';
+import { colors, font } from '../../theme/socialFitTheme';
 
 export default function WelcomeScreen({ navigation }) {
   const logoScale = useRef(new Animated.Value(0.7)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const contentAnim = useRef(new Animated.Value(0)).current;
-  const footerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
@@ -20,12 +19,12 @@ export default function WelcomeScreen({ navigation }) {
         Animated.timing(logoOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
       ]),
       Animated.timing(contentAnim, { toValue: 1, duration: 420, useNativeDriver: true }),
-      Animated.timing(footerAnim, { toValue: 1, duration: 420, useNativeDriver: true }),
     ]).start();
-  }, [logoScale, logoOpacity, contentAnim, footerAnim]);
+    const t = setTimeout(() => navigation?.replace?.('Login'), 1600);
+    return () => clearTimeout(t);
+  }, [logoScale, logoOpacity, contentAnim, navigation]);
 
   const contentTranslate = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
-  const footerTranslate = footerAnim.interpolate({ inputRange: [0, 1], outputRange: [26, 0] });
 
   return (
     <LinearGradient colors={['#10402B', colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={styles.screen}>
@@ -44,15 +43,6 @@ export default function WelcomeScreen({ navigation }) {
           </View>
         </Animated.View>
       </View>
-
-      <Animated.View style={[styles.footer, { opacity: footerAnim, transform: [{ translateY: footerTranslate }] }]}>
-        <TouchableOpacity style={styles.primary} activeOpacity={0.85} onPress={() => navigation?.navigate?.('Register')}>
-          <Text style={styles.primaryText}>Hesap Oluştur</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondary} activeOpacity={0.8} onPress={() => navigation?.navigate?.('Login')}>
-          <Text style={styles.secondaryText}>Giriş Yap</Text>
-        </TouchableOpacity>
-      </Animated.View>
     </LinearGradient>
   );
 }
@@ -66,9 +56,4 @@ const styles = StyleSheet.create({
   pills: { flexDirection: 'row', gap: 7, marginTop: 24 },
   pill: { backgroundColor: 'rgba(255,255,255,0.13)', paddingHorizontal: 13, paddingVertical: 7, borderRadius: 13 },
   pillText: { fontSize: 12, fontFamily: font.bodyBold, color: colors.white },
-  footer: { gap: 12 },
-  primary: { backgroundColor: colors.white, borderRadius: 18, paddingVertical: 17, alignItems: 'center', ...shadow.card },
-  primaryText: { color: colors.ink, fontFamily: font.bodyBold, fontSize: 16 },
-  secondary: { backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)', borderRadius: 18, paddingVertical: 17, alignItems: 'center' },
-  secondaryText: { color: colors.white, fontFamily: font.bodyBold, fontSize: 16 },
 });

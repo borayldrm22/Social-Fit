@@ -21,18 +21,22 @@ const BAR_COLORS = ['#E9EFE9', colors.coral, colors.amber, colors.primary, color
 export default function RegisterScreen({ navigation }) {
   const { register } = useAuth();
   const insets = useSafeAreaInsets();
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
   const [show, setShow] = useState(false);
   const [agree, setAgree] = useState(true);
   const [busy, setBusy] = useState(false);
   const s = strength(pass);
+  const match = pass.length > 0 && pass === pass2;
+  const canSubmit = agree && match && pass.length >= 6;
 
   const submit = async () => {
-    if (!agree) return;
+    if (!canSubmit) return;
     setBusy(true);
-    try { await register?.(email, pass, name); } catch (e) {} finally { setBusy(false); }
+    // Gerçek ad onboarding 1. adımda alınır; kayıtta e-posta ön adı geçici görünen ad olur.
+    const placeholderName = (email.split('@')[0] || 'Kullanıcı').trim();
+    try { await register?.(email, pass, placeholderName); } catch (e) {} finally { setBusy(false); }
   };
 
   return (
@@ -43,12 +47,6 @@ export default function RegisterScreen({ navigation }) {
         <View style={styles.logo}><Ionicons name="sparkles" size={27} color={colors.white} /></View>
         <Text style={styles.title}>Aramıza katıl 🎉</Text>
         <Text style={styles.sub}>Sağlıklı yaşam topluluğunda yerini al.</Text>
-
-        <Text style={styles.label}>Ad Soyad</Text>
-        <View style={styles.field}>
-          <Ionicons name="person-outline" size={19} color={colors.faint} />
-          <TextInput value={name} onChangeText={setName} placeholder="Adın Soyadın" placeholderTextColor={colors.faint} style={styles.input} />
-        </View>
 
         <Text style={styles.label}>E-posta</Text>
         <View style={styles.field}>
@@ -69,12 +67,20 @@ export default function RegisterScreen({ navigation }) {
         </View>
         <Text style={styles.hint}>Güçlü bir şifre · en az 8 karakter</Text>
 
+        <Text style={styles.label}>Şifre (tekrar)</Text>
+        <View style={[styles.field, pass2.length > 0 && !match && styles.fieldError]}>
+          <Ionicons name="lock-closed-outline" size={19} color={colors.faint} />
+          <TextInput value={pass2} onChangeText={setPass2} placeholder="••••••" placeholderTextColor={colors.faint}
+            secureTextEntry={!show} style={styles.input} />
+        </View>
+        {pass2.length > 0 && !match ? <Text style={styles.errHint}>Şifreler eşleşmiyor</Text> : null}
+
         <TouchableOpacity style={styles.agree} onPress={() => setAgree((a) => !a)}>
           <View style={[styles.checkbox, agree && { backgroundColor: colors.primary }]}>{agree ? <Ionicons name="checkmark" size={14} color={colors.white} /> : null}</View>
           <Text style={styles.agreeText}><Text style={styles.link}>Kullanım koşulları</Text> ve <Text style={styles.link}>gizlilik politikasını</Text> kabul ediyorum.</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.cta, !agree && { opacity: 0.5 }]} activeOpacity={0.85} onPress={submit} disabled={busy || !agree}>
+        <TouchableOpacity style={[styles.cta, !canSubmit && { opacity: 0.5 }]} activeOpacity={0.85} onPress={submit} disabled={busy || !canSubmit}>
           <Text style={styles.ctaText}>{busy ? 'Oluşturuluyor…' : 'Hesabımı Oluştur'}</Text>
           <Ionicons name="arrow-forward" size={19} color={colors.white} />
         </TouchableOpacity>
@@ -97,6 +103,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, color: colors.muted, fontFamily: font.bodyBold, marginTop: 14, marginBottom: 8 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 4 },
   fieldActive: { borderWidth: 2, borderColor: colors.primary },
+  fieldError: { borderWidth: 2, borderColor: colors.coral },
+  errHint: { fontSize: 12, color: colors.coral, fontFamily: font.body, marginTop: 6 },
   input: { flex: 1, fontSize: 15, color: colors.ink, fontFamily: font.body, paddingVertical: 13 },
   bars: { flexDirection: 'row', gap: 6, marginTop: 9 },
   bar: { flex: 1, height: 5, borderRadius: 3 },
