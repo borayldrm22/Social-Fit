@@ -1,7 +1,7 @@
 // LeaderboardScreen.js — SocialFit redesign · Liderlik tablosu
 // Konum: src/screens/main/LeaderboardScreen.js
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import { colors, font, shadow, avatarColor, getInitials } from '../../theme/socialFitTheme';
+import StarGuideCard from '../../components/sf/StarGuideCard';
 
 const PERIODS = [['week', 'Haftalık'], ['month', 'Aylık'], ['all', 'Tüm Zamanlar']];
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -47,6 +48,7 @@ export default function LeaderboardScreen({ navigation }) {
   const [period, setPeriod] = useState('month');
   const [data, setData] = useState({ top: [], rest: [], me: null });
   const [loading, setLoading] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,9 +128,13 @@ export default function LeaderboardScreen({ navigation }) {
           </View>
 
           {/* Puan kuralları */}
-          <View style={styles.rulesNote}>
-            <Text style={styles.rulesText}>Günlük paylaşım <Text style={styles.rulesStrong}>+20</Text>  ·  7 gün seri <Text style={styles.rulesStrong}>+50</Text>  ·  her grup <Text style={styles.rulesStrong}>+10</Text></Text>
-          </View>
+          <TouchableOpacity style={styles.rulesNote} activeOpacity={0.7} onPress={() => setGuideOpen(true)}>
+            <Text style={styles.rulesText}>Günlük paylaşım <Text style={styles.rulesStrong}>+20</Text>  ·  7 gün seri <Text style={styles.rulesStrong}>+50</Text></Text>
+            <View style={styles.rulesCta}>
+              <Text style={styles.rulesCtaText}>Yıldız nasıl kazanılır?</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+            </View>
+          </TouchableOpacity>
 
           {/* Liste */}
           <View style={{ marginHorizontal: 12, marginTop: 14, gap: 8 }}>
@@ -156,6 +162,17 @@ export default function LeaderboardScreen({ navigation }) {
           </View>
         </>
       )}
+
+      <Modal visible={guideOpen} transparent animationType="fade" onRequestClose={() => setGuideOpen(false)}>
+        <Pressable style={styles.modalScrim} onPress={() => setGuideOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <StarGuideCard />
+            <TouchableOpacity style={styles.modalClose} onPress={() => setGuideOpen(false)} activeOpacity={0.8}>
+              <Text style={styles.modalCloseText}>Anladım</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -177,9 +194,15 @@ const styles = StyleSheet.create({
   barNum: { fontFamily: font.displayBold, fontSize: 24, color: colors.white },
   prize: { flexDirection: 'row', alignItems: 'center', gap: 11, marginHorizontal: 16, marginTop: 14, backgroundColor: colors.amberTint, borderWidth: 1, borderColor: '#FBE6BC', borderRadius: 16, padding: 12 },
   prizeText: { flex: 1, fontSize: 12, color: '#9A7420', fontFamily: font.body, lineHeight: 18 },
-  rulesNote: { marginHorizontal: 16, marginTop: 8, backgroundColor: colors.mintSoft, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' },
-  rulesText: { fontSize: 11, color: colors.muted, fontFamily: font.body },
+  rulesNote: { marginHorizontal: 16, marginTop: 8, backgroundColor: colors.mintSoft, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  rulesText: { fontSize: 11, color: colors.muted, fontFamily: font.body, flexShrink: 1 },
   rulesStrong: { fontFamily: font.bodyBold, color: colors.primary },
+  rulesCta: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  rulesCtaText: { fontSize: 11.5, color: colors.primary, fontFamily: font.bodyBold },
+  modalScrim: { flex: 1, backgroundColor: 'rgba(17,35,27,0.5)', justifyContent: 'center', paddingHorizontal: 22 },
+  modalCard: { },
+  modalClose: { marginTop: 14, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 13, alignItems: 'center', ...shadow.cta },
+  modalCloseText: { fontFamily: font.bodyBold, fontSize: 15, color: colors.white },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, ...shadow.soft, paddingVertical: 10, paddingHorizontal: 10 },
   rank: { fontFamily: font.displayBold, fontSize: 15, color: colors.faint, width: 20, textAlign: 'center' },
   rowName: { fontFamily: font.bodyBold, fontSize: 14, color: colors.ink },

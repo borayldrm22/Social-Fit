@@ -1,8 +1,37 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const fs = require('fs');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
+
+// Supabase yapılandırılmışsa görselleri Storage'a yükle (public URL döner),
+// değilse yerel disk (localhost) URL'ine düş. Böylece prod seed'i localhost URL bırakmaz.
+const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
+const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'uploads';
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  const { createClient } = require('@supabase/supabase-js');
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+}
+
+// relPath: uploads koku icinde gorece yol (or. 'runner.png', 'recipes/protein-pancake.jpg')
+async function resolveImageUrl(relPath) {
+  if (!supabase) return `${BASE_URL}/uploads/${relPath}`;
+  const full = path.join(UPLOAD_DIR, relPath);
+  if (!fs.existsSync(full)) return `${BASE_URL}/uploads/${relPath}`;
+  const contentType = relPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(relPath, fs.readFileSync(full), { contentType, upsert: true });
+  if (error) {
+    console.warn(`[seed] Storage yukleme hatasi (${relPath}): ${error.message}`);
+    return `${BASE_URL}/uploads/${relPath}`;
+  }
+  return supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(relPath).data.publicUrl;
+}
 
 async function main() {
   await prisma.badge.upsert({ where: { key: 'streak_7' }, create: { key: 'streak_7', name: '7 Gün Seri', description: '7 gün üst üste paylaşım', daysRequired: 7 }, update: {} });
@@ -24,6 +53,11 @@ async function main() {
   console.log('Admin user seeded (admin@example.com / admin123)');
 
   // Example feed posts with images (owned by admin; images in backend/uploads)
+  const [chickenUrl, smoothieUrl, runnerUrl] = await Promise.all([
+    resolveImageUrl('chicken-rice-bowl.png'),
+    resolveImageUrl('smoothie-bowl.png'),
+    resolveImageUrl('runner.png'),
+  ]);
   await prisma.post.deleteMany({ where: { userId: admin.id } });
   await prisma.post.createMany({
     data: [
@@ -33,7 +67,7 @@ async function main() {
         caption: 'Tavuklu pilav kase – taze sebzelerle dengeli öğle yemeği. 🍚🥗',
         tags: '[]',
         groupId: null,
-        imageUrl: `${BASE_URL}/uploads/chicken-rice-bowl.png`,
+        imageUrl: chickenUrl,
       },
       {
         userId: admin.id,
@@ -41,7 +75,7 @@ async function main() {
         caption: 'Bugün öğle yemeğim: Tavuklu salata ve taze sıkılmış portakal suyu. 🥗🍊',
         tags: '[]',
         groupId: null,
-        imageUrl: `${BASE_URL}/uploads/smoothie-bowl.png`,
+        imageUrl: smoothieUrl,
       },
       {
         userId: admin.id,
@@ -49,7 +83,7 @@ async function main() {
         caption: 'Sabah koşusu tamamlandı! 5 km, 25 dakika. #Koşu 🏃‍♂️☁️',
         tags: '["Koşu"]',
         groupId: null,
-        imageUrl: `${BASE_URL}/uploads/runner.png`,
+        imageUrl: runnerUrl,
       },
     ],
   });
@@ -237,7 +271,7 @@ async function main() {
       timeMinutes: r.timeMinutes, calories: r.calories,
       protein: r.protein, carbs: r.carbs, fat: r.fat,
       servings: r.servings, difficulty: r.difficulty,
-      imageUrl: `${BASE_URL}/uploads/recipes/${r.slug}.jpg`,
+      imageUrl: await resolveImageUrl(`recipes/${r.slug}.jpg`),
       ingredients: JSON.stringify(r.ingredients),
       steps: JSON.stringify(r.steps),
       fitNote: r.fitNote, fullText: r.fullText, isFeatured: r.isFeatured,

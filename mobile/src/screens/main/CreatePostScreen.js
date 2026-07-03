@@ -8,6 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadFormData } from '../../api/client';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { useStarReward } from '../../context/StarRewardContext';
+import { compressImage } from '../../utils/image';
 import { API_BASE } from '../../config';
 
 const GREEN = '#2D6A4F';
@@ -17,6 +19,7 @@ export default function CreatePostScreen({ navigation, route }) {
   console.log('[CreatePostScreen] rendered, token exists:', !!useAuth().token);
   const api = useApi();
   const { token } = useAuth();
+  const { celebrate } = useStarReward();
   const [type, setType] = useState(route.params?.prefillType || 'meal'); // 'meal' | 'workout' | 'text'
   const [caption, setCaption] = useState(route.params?.prefillCaption || '');
   const [media, setMedia] = useState(null); // { uri, isVideo }
@@ -40,7 +43,9 @@ export default function CreatePostScreen({ navigation, route }) {
       quality: 0.85,
     });
     if (!result.canceled) {
-      setMedia({ uri: result.assets[0].uri, isVideo: false });
+      const a = result.assets[0];
+      const uri = await compressImage(a.uri, { width: a.width });
+      setMedia({ uri, isVideo: false });
     }
   };
 
@@ -88,13 +93,18 @@ export default function CreatePostScreen({ navigation, route }) {
 
       await uploadFormData('/api/posts', formData, token);
 
+      let reward = null;
       try {
-        await api.post('/api/streaks/record');
+        const res = await api.post('/api/streaks/record');
+        if (res?.awarded > 0) reward = { points: res.awarded, bonus: res.bonus || 0 };
       } catch (_) {}
 
       const parent = navigation.getParent();
       if (parent) parent.navigate('Feed');
       else navigation.goBack();
+
+      // Navigasyon tamamlandıktan sonra global overlay'i tetikle
+      if (reward) setTimeout(() => celebrate(reward), 350);
     } catch (e) {
       console.error('[CreatePost] submit error:', e);
       Alert.alert('Hata', e.message || 'Paylaşım yapılamadı. Sunucu bağlantısını kontrol edin.');
