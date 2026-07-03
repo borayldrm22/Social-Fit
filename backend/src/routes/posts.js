@@ -329,16 +329,22 @@ router.delete('/:id/save', async (req, res, next) => {
 // Comments list
 router.get('/:id/comments', async (req, res, next) => {
   try {
-    const comments = await prisma.comment.findMany({
-      where: { postId: req.params.id },
-      orderBy: { createdAt: 'asc' },
-      include: { user: { select: { id: true, profile: true } } },
-    });
+    const [comments, post] = await Promise.all([
+      prisma.comment.findMany({
+        where: { postId: req.params.id },
+        orderBy: { createdAt: 'asc' },
+        include: { user: { select: { id: true, profile: true } } },
+      }),
+      prisma.post.findUnique({ where: { id: req.params.id }, select: { userId: true } }),
+    ]);
     const commenterIds = comments.map((c) => c.user.id);
     const starPointsMap = await getStarPointsForUserIds(prisma, commenterIds);
+    const isPostOwner = post?.userId === req.user.id;
     const withStars = comments.map((c) => ({
       ...c,
       user: { ...c.user, starPoints: starPointsMap[c.user.id] ?? 0 },
+      canEdit: c.userId === req.user.id,
+      canDelete: c.userId === req.user.id || isPostOwner,
     }));
     res.json(withStars);
   } catch (e) {
@@ -359,11 +365,50 @@ router.post(
         include: { user: { select: { id: true, profile: true } } },
       });
       await awardPoints(req.user.id, 2, 'comment_created', comment.id);
-      res.status(201).json(comment);
+      res.status(201).json({ ...comment, canEdit: true, canDelete: true });
     } catch (e) {
       next(e);
     }
   }
 );
+
+// Edit own comment
+router.patch(
+  '/:id/comments/:commentId',
+  [body('body').trim().notEmpty()],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
+      if (!comment || comment.postId !== req.params.id) return res.status(404).json({ error: 'Yorum bulunamadı' });
+      if (comment.userId !== req.user.id) return res.status(403).json({ error: 'Sadece kendi yorumunu düzenleyebilirsin' });
+      const updated = await prisma.comment.update({
+        where: { id: comment.id },
+        data: { body: req.body.body },
+        include: { user: { select: { id: true, profile: true } } },
+      });
+      res.json({ ...updated, canEdit: true, canDelete: true });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// Delete comment — yorum sahibi veya gönderi sahibi silebilir
+router.delete('/:id/comments/:commentId', async (req, res, next) => {
+  try {
+    const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
+    if (!comment || comment.postId !== req.params.id) return res.status(404).json({ error: 'Yorum bulunamadı' });
+    const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { userId: true } });
+    if (comment.userId !== req.user.id && post?.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Bu yorumu silme yetkin yok' });
+    }
+    await prisma.comment.delete({ where: { id: comment.id } });
+    res.json({ message: 'Yorum silindi' });
+  } catch (e) {
+    next(e);
+  }
+});
 
 module.exports = router;
