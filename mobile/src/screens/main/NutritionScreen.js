@@ -2,13 +2,18 @@
 // Konum: src/screens/main/NutritionScreen.js
 // Backend: GET /api/foodlog?date=YYYY-MM-DD -> { totalCalories, goalCalories, remaining, meals }
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useApi } from '../../api/client';
 import { colors, font, shadow } from '../../theme/socialFitTheme';
 import { ProgressBar } from '../../components/sf/ui';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const MEAL_META = [
   { key: 'breakfast', label: 'Kahvaltı', icon: 'sunny-outline' },
@@ -29,12 +34,26 @@ function todayLabel() {
 
 const EMPTY = { totalCalories: 0, goalCalories: null, remaining: null, meals: { breakfast: [], lunch: [], dinner: [], snack: [] } };
 
+function extractServingFromNote(note) {
+  if (!note) return null;
+  const text = String(note);
+  const markerMatch = text.match(/\[serving:\s*([0-9]+(?:[.,][0-9]+)?)\s*\]/i);
+  if (markerMatch) {
+    const parsedMarker = Number(markerMatch[1].replace(',', '.'));
+    if (Number.isFinite(parsedMarker)) return parsedMarker;
+  }
+  const match = text.match(/Adet:\s*([0-9]+(?:[.,][0-9]+)?)x/i);
+  if (!match) return null;
+  const parsed = Number(match[1].replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function CalorieRing({ eaten, goal }) {
   return (
     <View style={styles.ring}>
       <View style={[styles.ringFill, { borderColor: colors.primary }]} />
       <View style={styles.ringInner}>
-        <Text style={styles.ringNum}>{eaten.toLocaleString('tr-TR')}</Text>
+        <Text style={styles.ringNum} selectable>{eaten.toLocaleString('tr-TR')}</Text>
         <Text style={styles.ringSub}>/ {goal.toLocaleString('tr-TR')} kcal</Text>
       </View>
     </View>
@@ -47,13 +66,17 @@ export default function NutritionScreen({ navigation }) {
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
+    setError('');
     try {
       const d = await api.get(`/api/foodlog?date=${todayStr()}`);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setData(d && d.meals ? d : EMPTY);
     } catch (e) {
       setData(EMPTY);
+      setError('Beslenme verileri su an yuklenemiyor. Lutfen tekrar dene.');
     } finally {
       setLoading(false);
     }
@@ -63,10 +86,15 @@ export default function NutritionScreen({ navigation }) {
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
 
   const remove = (id) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert('Sil', 'Bu öğünü silmek istiyor musun?', [
       { text: 'Vazgeç', style: 'cancel' },
       { text: 'Sil', style: 'destructive', onPress: async () => {
-        try { await api.delete(`/api/foodlog/${id}`); load(); } catch (e) { Alert.alert('Hata', 'Silinemedi.'); }
+        try {
+          await api.delete(`/api/foodlog/${id}`);
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          load();
+        } catch (e) { Alert.alert('Hata', 'Silinemedi.'); }
       } },
     ]);
   };
@@ -83,7 +111,10 @@ export default function NutritionScreen({ navigation }) {
     { label: 'Yağ', cur: Math.round(sum('fat')), goal: Math.round((goal * 0.30) / 9), color: colors.coral },
   ];
 
-  const addTo = (mealType) => navigation.navigate('AddFood', { mealType, date: todayStr() });
+  const addTo = (mealType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('AddFood', { mealType, date: todayStr() });
+  };
 
   return (
     <View style={styles.screen}>
@@ -98,7 +129,7 @@ export default function NutritionScreen({ navigation }) {
             <Text style={styles.sub}>{todayLabel()}</Text>
           </View>
           <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('FoodLog')}>
-            <Ionicons name="calendar-outline" size={19} color="#3C4A42" />
+            <Ionicons name="calendar-outline" size={19} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -113,11 +144,11 @@ export default function NutritionScreen({ navigation }) {
                 <View style={{ flex: 1, gap: 10 }}>
                   <View style={[styles.pill, { backgroundColor: colors.mint }]}>
                     <Ionicons name="flame" size={18} color={colors.primary} />
-                    <View><Text style={[styles.pillNum, { color: colors.primary }]}>{remaining}</Text><Text style={[styles.pillLbl, { color: '#3E7A5E' }]}>kalori kaldı</Text></View>
+                    <View><Text style={[styles.pillNum, { color: colors.primary }]}>{remaining}</Text><Text style={[styles.pillLbl, { color: colors.primaryDark }]}>kalori kaldı</Text></View>
                   </View>
                   <View style={[styles.pill, { backgroundColor: colors.amberTint }]}>
                     <Ionicons name="restaurant" size={18} color={colors.amberDark} />
-                    <View><Text style={[styles.pillNum, { color: colors.amberDark }]}>{allItems.length}</Text><Text style={[styles.pillLbl, { color: '#A8801E' }]}>öğün girişi</Text></View>
+                    <View><Text style={[styles.pillNum, { color: colors.amberDark }]}>{allItems.length}</Text><Text style={[styles.pillLbl, { color: colors.amberDark }]}>öğün girişi</Text></View>
                   </View>
                 </View>
               </View>
@@ -151,24 +182,40 @@ export default function NutritionScreen({ navigation }) {
                     </TouchableOpacity>
                   </View>
                   {items.length === 0 ? (
-                    <Text style={styles.mealEmpty}>Henüz eklenmedi</Text>
-                  ) : items.map((it) => (
-                    <View key={it.id} style={styles.foodRow}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.foodName} numberOfLines={1}>{it.foodName}</Text>
-                        <Text style={styles.foodMacro}>P {Math.round(it.protein || 0)} · K {Math.round(it.carbs || 0)} · Y {Math.round(it.fat || 0)}</Text>
+                    <Text style={styles.mealEmpty}>Henüz eklenmedi, + ile ilk yemegi ekleyebilirsin.</Text>
+                  ) : items.map((it) => {
+                    const serving = extractServingFromNote(it.note);
+                    return (
+                      <View key={it.id} style={styles.foodRow}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.foodName} numberOfLines={1}>{it.foodName}</Text>
+                          <Text style={styles.foodMacro}>P {Math.round(it.protein || 0)} · K {Math.round(it.carbs || 0)} · Y {Math.round(it.fat || 0)}</Text>
+                          {serving ? <Text style={styles.foodServing}>Adet: {serving}x</Text> : null}
+                        </View>
+                        <Text style={styles.foodKcal} selectable>{it.calories}</Text>
+                        <TouchableOpacity onPress={() => remove(it.id)} hitSlop={8} style={{ marginLeft: 12 }}>
+                          <Ionicons name="trash-outline" size={18} color={colors.faint} />
+                        </TouchableOpacity>
                       </View>
-                      <Text style={styles.foodKcal}>{it.calories}</Text>
-                      <TouchableOpacity onPress={() => remove(it.id)} hitSlop={8} style={{ marginLeft: 12 }}>
-                        <Ionicons name="trash-outline" size={18} color={colors.faint} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               );
             })}
 
             {/* Tarifler kartı */}
+            {error ? (
+              <View style={styles.errorCard}>
+                <Ionicons name="cloud-offline-outline" size={18} color={colors.coralDark} />
+                <Text style={styles.errorText} selectable>{error}</Text>
+              </View>
+            ) : null}
+            {!loading && allItems.length === 0 ? (
+              <View style={styles.emptyHintCard}>
+                <Ionicons name="nutrition-outline" size={18} color={colors.primary} />
+                <Text style={styles.emptyHintText}>Aramadan yemek secip adet ayarlayarak hizlica gunluk kayit olusturabilirsin.</Text>
+              </View>
+            ) : null}
             <TouchableOpacity style={styles.tarifCard} activeOpacity={0.9} onPress={() => navigation.navigate('Recipes')}>
               <View style={styles.tarifIcon}><Ionicons name="restaurant" size={20} color={colors.primary} /></View>
               <View style={{ flex: 1 }}>
@@ -205,17 +252,17 @@ const styles = StyleSheet.create({
   sub: { fontSize: 13, color: colors.faint, fontFamily: font.body, marginTop: 1 },
   iconBtn: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   card: { marginHorizontal: 16, backgroundColor: colors.surface, borderRadius: 24, ...shadow.card, padding: 18 },
-  ring: { width: 128, height: 128, borderRadius: 64, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E7F0E9' },
+  ring: { width: 128, height: 128, borderRadius: 64, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mint },
   ringFill: { ...StyleSheet.absoluteFillObject, borderRadius: 64, borderWidth: 12, borderColor: colors.primary, borderRightColor: 'transparent', transform: [{ rotate: '45deg' }] },
   ringInner: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  ringNum: { fontFamily: font.displayBold, fontSize: 27, color: colors.ink },
+  ringNum: { fontFamily: font.displayBold, fontSize: 27, color: colors.ink, fontVariant: ['tabular-nums'] },
   ringSub: { fontSize: 11, color: colors.faint, fontFamily: font.bodyBold, marginTop: 2 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 },
-  pillNum: { fontFamily: font.displayBold, fontSize: 18 },
+  pillNum: { fontFamily: font.displayBold, fontSize: 18, fontVariant: ['tabular-nums'] },
   pillLbl: { fontSize: 10, fontFamily: font.bodyBold },
   macroTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
   macroLbl: { fontFamily: font.bodyBold, fontSize: 12, color: colors.ink },
-  macroVal: { fontSize: 12, color: colors.faint, fontFamily: font.bodyBold },
+  macroVal: { fontSize: 12, color: colors.faint, fontFamily: font.bodyBold, fontVariant: ['tabular-nums'] },
   mealSection: { marginHorizontal: 16, marginTop: 14, backgroundColor: colors.surface, borderRadius: 18, ...shadow.soft, paddingHorizontal: 14, paddingVertical: 12 },
   mealHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mealTitle: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },
@@ -225,7 +272,12 @@ const styles = StyleSheet.create({
   foodRow: { flexDirection: 'row', alignItems: 'center', marginTop: 11, paddingTop: 11, borderTopWidth: 1, borderTopColor: colors.divider },
   foodName: { fontFamily: font.bodyBold, fontSize: 14, color: colors.ink },
   foodMacro: { fontSize: 11, color: colors.faint, fontFamily: font.body, marginTop: 2 },
-  foodKcal: { fontFamily: font.displayBold, fontSize: 15, color: colors.ink },
+  foodServing: { fontSize: 11, color: colors.primary, fontFamily: font.bodyBold, marginTop: 2 },
+  foodKcal: { fontFamily: font.displayBold, fontSize: 15, color: colors.ink, fontVariant: ['tabular-nums'] },
+  errorCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 14, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.coralTint },
+  errorText: { flex: 1, fontSize: 12, color: colors.coralDark, fontFamily: font.bodyBold },
+  emptyHintCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 14, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.mint },
+  emptyHintText: { flex: 1, fontSize: 12, color: colors.primaryDark, fontFamily: font.bodyBold },
   tarifCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 14, backgroundColor: colors.surface, borderRadius: 18, ...shadow.soft, padding: 14 },
   tarifIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center' },
   tarifTitle: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },

@@ -1,7 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
-const { awardPoints } = require('../services/starService');
+const { awardPoints, getStarPoints } = require('../services/starService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -44,7 +44,7 @@ router.get('/me', async (req, res, next) => {
       include: { badge: true },
       orderBy: { earnedAt: 'desc' },
     });
-    const starPoints = records.reduce((sum, r) => sum + (r.count >= 7 ? 10 : r.count), 0);
+    const starPoints = await getStarPoints(req.user.id);
     res.json({
       currentStreak,
       starPoints,
@@ -55,10 +55,22 @@ router.get('/me', async (req, res, next) => {
   }
 });
 
+// Yıldız ekonomisi burada merkezî: günde ilk aktivite +20 (günde max 1),
+// 7'nin katı seri gününde +50 haftalık bonus. Post + foodlog bunu tetikler.
+const DAILY_POST_POINTS = 20;
+const WEEKLY_STREAK_BONUS = 50;
+
 async function recordStreak(userId) {
   const today = new Date(toDateOnly(new Date()));
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
+
+  // Bugün ilk aktivite mi? (puanı günde bir kez vermek için)
+  const existingToday = await prisma.streak.findUnique({
+    where: { userId_date: { userId, date: today } },
+  });
+  const isFirstToday = !existingToday;
+
   const prev = await prisma.streak.findUnique({
     where: { userId_date: { userId, date: yesterday } },
   });
@@ -68,6 +80,8 @@ async function recordStreak(userId) {
     create: { userId, date: today, count },
     update: { count },
   });
+
+  // Rozetler (7/14/30 gün)
   const badges = await prisma.badge.findMany();
   for (const badge of badges) {
     if (count >= badge.daysRequired) {
@@ -78,14 +92,26 @@ async function recordStreak(userId) {
       });
     }
   }
+
   const updated = await prisma.streak.findUnique({
     where: { userId_date: { userId, date: today } },
   });
-  if (updated) {
-    const streakPoints = updated.count >= 7 ? 10 : updated.count;
-    await awardPoints(userId, streakPoints, 'streak_daily', updated.id);
+
+  // Yıldız puanı — yalnızca günün ilk aktivitesinde (günde max 1)
+  let awarded = 0;
+  let bonus = 0;
+  if (isFirstToday && updated) {
+    awarded = DAILY_POST_POINTS;
+    await awardPoints(userId, DAILY_POST_POINTS, 'post_created', updated.id);
+    // Haftalık seri bonusu: 7, 14, 21... günde
+    if (updated.count % 7 === 0) {
+      bonus = WEEKLY_STREAK_BONUS;
+      await awardPoints(userId, WEEKLY_STREAK_BONUS, 'streak_weekly', updated.id);
+    }
   }
-  return updated;
+
+  // Mobil kutlama animasyonu için kazanılan puanı da döndür (awarded/bonus)
+  return { ...updated, awarded, bonus };
 }
 
 // Record activity for today (call when user posts or logs a meal)

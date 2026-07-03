@@ -1,6 +1,8 @@
 # Social Fit — Claude Code Project Memory
 
-Bu dosya her oturumda otomatik yüklenir. Tüm agent'lar buradan başlar. Detay için `README.md` ve `.claude/ARCHITECTURE.md`'e bak.
+Bu dosya her oturumda otomatik yüklenir. Tüm agent'lar buradan başlar. Detay için `README.md`, `.cursor/ARCHITECTURE.md` (Cursor) ve `.claude/ARCHITECTURE.md` (Claude Code)'e bak.
+
+> **Cursor kullanıyorsan:** Kaynak klasör `.cursor/` — agent'lar, skill'ler, handoff'lar ve proje kuralı orada. Bu dosya (`CLAUDE.md`) Claude Code için; Cursor'da eşdeğeri `.cursor/rules/social-fit-project.mdc`.
 
 ## Ürün özeti (1 paragraf)
 
@@ -11,7 +13,7 @@ Social Fit — sağlıklı yaşam odaklı bir sosyal medya uygulaması (TR pazar
 ✅ Onboarding akışı | ✅ Onboarding tekrar gösterim fix
 ⏳ FoodLog backend + mobil ekranlar | ⏳ Star economy + leaderboard | ⏳ Group challenge | ⏳ Step2→Step3 kalori parseFloat bug | ⏳ SQLite→Postgres | ⏳ Polling→Socket.io
 
-5 fazlık roadmap için: `.claude/skills/social-fit-domain/SKILL.md`.
+5 fazlık roadmap için: `.cursor/skills/social-fit-domain/SKILL.md` (Cursor) veya `.claude/skills/social-fit-domain/SKILL.md` (Claude Code).
 
 ## Proje yapısı
 
@@ -49,13 +51,17 @@ cd mobile && npm install && npx expo start
 
 ## Multi-Agent yapı
 
-Dört subagent (`.claude/agents/`):
+**Cursor:** `.cursor/agents/` + `.cursor/skills/` + `.cursor/handoffs/` — detay `.cursor/ARCHITECTURE.md`
+
+**Claude Code:** `.claude/agents/` + `.claude/skills/` + `.claude/handoffs/` — detay `.claude/ARCHITECTURE.md`
+
+Dört subagent:
 - **`feature-spec`** — TR feature isteğini spec'e çevirir (Read-only)
 - **`ui-designer`** — `mobile/` UI ekranlarını design system'e uygun yazar
 - **`backend-ui-bridge`** — API kontratını (mobile ↔ backend) ve state/data-flow uyumunu tutarlı tutar
 - **`qa-reviewer`** — feature/refactor sonrası bağımsız review yapar, PASS/NEEDS-FIX/BLOCKED döner
 
-Sekiz skill (`.claude/skills/`):
+Sekiz skill (`.cursor/skills/` veya `.claude/skills/`):
 - `social-fit-domain` — ürün vizyonu, onboarding modeli, 5 fazlı roadmap
 - `ui-design-system` — Social Fit token kullanımı
 - `mobile-screen-patterns` — ekran iskeleti pattern'leri
@@ -66,12 +72,12 @@ Sekiz skill (`.claude/skills/`):
 - `feature-delivery-checklist` — Definition of Done
 - `qa-review-checklist` — qa-reviewer'ın zorunlu kontrol listesi
 
-Handoff dosyaları (`.claude/handoffs/`):
+Handoff dosyaları (`.cursor/handoffs/` veya `.claude/handoffs/`):
 - Non-trivial feature için bir `.md` aç — `_TEMPLATE.md`'i kopyala
 - Tüm agent'lar aynı dosyaya yazar/okur — subagent'ların kalıcı paylaşım katmanı
 - Trivial fix için handoff açma
 
-Detaylı orkestrasyon: `.claude/ARCHITECTURE.md`.
+Detaylı orkestrasyon: `.cursor/ARCHITECTURE.md` (Cursor) veya `.claude/ARCHITECTURE.md` (Claude Code).
 
 ## Domain-spesifik kurallar
 

@@ -49,6 +49,7 @@ import GroupDiscoverScreen from '../screens/main/GroupDiscoverScreen';
 import GroupMapScreen from '../screens/main/GroupMapScreen';
 import RecipeDetailScreen from '../screens/main/RecipeDetailScreen';
 import BlogScreen from '../screens/main/BlogScreen';
+import SavedPostsScreen from '../screens/main/SavedPostsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -76,6 +77,9 @@ function MoreStack() {
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Bildirimler' }} />
+      <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ title: 'Kaydettiklerim' }} />
+      <Stack.Screen name="Comments" component={CommentScreen} options={{ title: 'Yorumlar' }} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
       <Stack.Screen name="Coaches" component={CoachesScreen} options={{ title: 'Diyetisyenimle Görüş' }} />
       <Stack.Screen name="CoachBooking" component={CoachBookingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FoodLog" component={FoodLogScreen} options={{ title: 'Yemek Günlüğü' }} />

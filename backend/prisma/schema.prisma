@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -21,6 +22,7 @@ model User {
   profile    Profile?
   posts      Post[]
   likes      Like[]
+  savedPosts SavedPost[]
   comments   Comment[]
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages  Message[] @relation("ReceivedMessages")
@@ -88,6 +90,7 @@ model Post {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   likes    Like[]
+  savedBy  SavedPost[]
   comments Comment[]
 }
 
@@ -101,6 +104,18 @@ model Like {
 
   @@unique([userId, postId])
   @@map("likes")
+}
+
+model SavedPost {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String   @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, postId])
+  @@map("saved_posts")
 }
 
 model Comment {

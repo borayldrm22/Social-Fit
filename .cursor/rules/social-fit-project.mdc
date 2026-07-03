@@ -1,0 +1,55 @@
+---
+description: Social Fit proje hafızası — ürün özeti, stack, multi-agent yapı, domain kuralları. Her oturumda otomatik yüklenir.
+alwaysApply: true
+---
+
+# Social Fit — Proje Hafızası
+
+Detaylı orkestrasyon: `.cursor/ARCHITECTURE.md`. Claude Code uyumluluğu için aynı içerik `.claude/` altında da durur.
+
+## Ürün özeti
+
+Social Fit — sağlıklı yaşam odaklı sosyal medya (TR pazarı öncelik). Kullanıcılar öğün/spor paylaşır, **streak ve yıldız puanı** kazanır, **kanal/grup'lara** katılır, **diyetisyen rezervasyonu** alır. Stack: React Native + Expo (mobile), Node + Express + Prisma + SQLite (dev) / PostgreSQL (prod).
+
+## Şu anki durum (Faz 1 — 2/10)
+
+✅ Onboarding | ✅ Onboarding tekrar gösterim fix
+⏳ FoodLog | ⏳ Star economy + leaderboard | ⏳ Group challenge | ⏳ Step2→Step3 kalori bug | ⏳ SQLite→Postgres | ⏳ Polling→Socket.io
+
+Roadmap: `.cursor/skills/social-fit-domain/SKILL.md`
+
+## Multi-Agent (Cursor)
+
+Dört subagent (`.cursor/agents/`):
+- **feature-spec** — TR feature isteğini spec'e çevirir (readonly)
+- **ui-designer** — mobile UI, design system
+- **backend-ui-bridge** — API kontrat + state/data-flow
+- **qa-reviewer** — PASS/NEEDS-FIX/BLOCKED review
+
+Çağırma: `/feature-spec ...`, `/ui-designer ...` veya "feature-spec ile spec yaz" de.
+
+Dokuz skill (`.cursor/skills/`): domain, ui-design-system, mobile-screen-patterns, api-contract-check, backend-route-patterns, state-data-flow-patterns, feature-spec-writer, feature-delivery-checklist, qa-review-checklist.
+
+Handoff: non-trivial feature için `.cursor/handoffs/<slug>.md` aç (`_TEMPLATE.md`'den kopyala).
+
+## Domain kuralları
+
+- Kod İngilizce, UI metni Türkçe
+- Streak: günlük ≥1 paylaşım/log → +1; 1 gün atlama → sıfırlanır
+- Star economy: `starService.awardPoints` ile loglanır
+- KVKK: sağlık verisi → açık rıza; "tedavi/teşhis" YOK, "öneri" tamam
+
+## Kod ipuçları
+
+- API pattern (cancel guard): `OnboardingSocialStep`
+- `useApi()` dependency: `[api]` koy, `[token]` koyma
+- Prisma: `npx prisma migrate dev --name <açıklama>`
+- Multer upload alan adı: `image`
+
+## Çalıştırma
+
+```bash
+cd backend && npm install && npx prisma db push && node prisma/seed.js && npm run dev
+cd mobile && npm install && npx expo start
+# mobile/src/config.js → API_BASE'i kendi IP'ne ayarla
+```

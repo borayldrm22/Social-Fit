@@ -1,36 +1,78 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
-const { awardPoints } = require('../services/starService');
 const { recordStreak } = require('./streaks');
+const { uploadFile } = require('../services/storageService');
 const foods = require('../data/foods');
 
 const prisma = new PrismaClient();
 const router = express.Router();
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-const FOODLOG_DIR = path.join(UPLOAD_DIR, 'foodlog');
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
 
-if (!fs.existsSync(FOODLOG_DIR)) {
-  fs.mkdirSync(FOODLOG_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, FOODLOG_DIR),
-  filename: (req, file, cb) => cb(null, `foodlog-${uuidv4()}${path.extname(file.originalname) || '.jpg'}`),
-});
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(authMiddleware);
 
 function toDateOnly(d) {
   const x = new Date(d);
   return new Date(x.getFullYear(), x.getMonth(), x.getDate());
+}
+
+function toNumber(value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeOpenFoodItem(product) {
+  const languages = Array.isArray(product?.languages_tags) ? product.languages_tags : [];
+  const hasTurkishLanguageTag = languages.includes('en:turkish');
+  const turkishName = (product.product_name_tr || product.generic_name_tr || '').trim();
+  if (!hasTurkishLanguageTag && !turkishName) return null;
+
+  const nutriments = product?.nutriments || {};
+  const calories = toNumber(nutriments['energy-kcal_100g'] ?? nutriments.energy_kcal_100g ?? nutriments['energy-kcal']);
+  const protein = toNumber(nutriments.proteins_100g ?? nutriments.proteins);
+  const carbs = toNumber(nutriments.carbohydrates_100g ?? nutriments.carbohydrates);
+  const fat = toNumber(nutriments.fat_100g ?? nutriments.fat);
+  const hasAnyMacro = calories != null || protein != null || carbs != null || fat != null;
+  if (!hasAnyMacro) return null;
+  const name = (turkishName || product.product_name || product.generic_name || '').trim();
+  if (!name) return null;
+  return {
+    name,
+    calories: Math.max(0, Math.round(calories ?? 0)),
+    protein: Math.max(0, Number((protein ?? 0).toFixed(1))),
+    carbs: Math.max(0, Number((carbs ?? 0).toFixed(1))),
+    fat: Math.max(0, Number((fat ?? 0).toFixed(1))),
+  };
+}
+
+async function searchOpenFoodFacts(q) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(q)}&page_size=24&fields=product_name,product_name_tr,generic_name,generic_name_tr,languages_tags,nutriments`;
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return [];
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) return [];
+    const data = await response.json();
+    const products = Array.isArray(data?.products) ? data.products : [];
+    const normalized = products.map(normalizeOpenFoodItem).filter(Boolean);
+    const uniqueByName = new Map();
+    for (const item of normalized) {
+      const key = item.name.toLowerCase();
+      if (!uniqueByName.has(key)) uniqueByName.set(key, item);
+      if (uniqueByName.size >= 12) break;
+    }
+    return Array.from(uniqueByName.values());
+  } catch (_) {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // POST /api/foodlog
@@ -55,7 +97,7 @@ router.post(
       const { date, mealType, foodName, calories, protein, carbs, fat, note } = req.body;
 
       let imageUrl = null;
-      if (req.file) imageUrl = `${BASE_URL}/uploads/foodlog/${req.file.filename}`;
+      if (req.file) imageUrl = await uploadFile(req.file.buffer, { prefix: 'foodlog', originalname: req.file.originalname, contentType: req.file.mimetype, folder: 'foodlog' });
 
       const foodLog = await prisma.foodLog.create({
         data: {
@@ -72,10 +114,11 @@ router.post(
         },
       });
 
-      await awardPoints(req.user.id, 5, 'post_created', String(foodLog.id));
-      await recordStreak(req.user.id);
+      // Streak + günlük yıldız puanı (günde max 1 — recordStreak içinde)
+      const streak = await recordStreak(req.user.id);
 
-      res.status(201).json(foodLog);
+      // Mobil kutlama animasyonu için kazanılan puanı da döndür
+      res.status(201).json({ ...foodLog, awarded: streak?.awarded || 0, bonus: streak?.bonus || 0 });
     } catch (e) {
       next(e);
     }
@@ -88,11 +131,14 @@ router.get('/search', async (req, res, next) => {
     const q = (req.query.q || '').toLowerCase().trim();
     if (!q) return res.json([]);
 
-    const results = foods
+    const onlineResults = await searchOpenFoodFacts(q);
+    if (onlineResults.length > 0) return res.json(onlineResults);
+
+    const fallbackResults = foods
       .filter((f) => f.name.toLowerCase().includes(q))
       .slice(0, 10);
 
-    res.json(results);
+    res.json(fallbackResults);
   } catch (e) {
     next(e);
   }

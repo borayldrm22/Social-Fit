@@ -1,23 +1,16 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds, getCurrentStreakForUserIds } = require('../lib/streakStats');
 const { awardPoints, getStarPointsInPeriod } = require('../services/starService');
+const { uploadFile } = require('../services/storageService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => cb(null, `avatar-${uuidv4()}${path.extname(file.originalname) || '.jpg'}`),
-});
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.use(authMiddleware);
 
@@ -174,7 +167,7 @@ router.patch(
       for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
       // isPublic toggle
       if (req.body.isPublic !== undefined) data.isPublic = req.body.isPublic === true || req.body.isPublic === 'true';
-      if (req.file) data.avatarUrl = `${BASE_URL}/uploads/${req.file.filename}`;
+      if (req.file) data.avatarUrl = await uploadFile(req.file.buffer, { prefix: 'avatar', originalname: req.file.originalname, contentType: req.file.mimetype });
 
       const healthKeys = ['weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote'];
       const isUpdatingHealth = healthKeys.some((k) => req.body[k] !== undefined);

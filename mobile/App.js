@@ -7,6 +7,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { StarRewardProvider } from './src/context/StarRewardContext';
 import AuthStack from './src/navigation/AuthStack';
 import MainTabs from './src/navigation/MainTabs';
 import OnboardingNavigator from './src/screens/onboarding/OnboardingNavigator';
@@ -63,9 +64,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
+        <StarRewardProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </StarRewardProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

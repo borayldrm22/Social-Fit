@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '../../api/client';
 import { API_BASE } from '../../config';
+import { compressImage } from '../../utils/image';
 import GroupLocationPrivacyFields from '../../components/sf/GroupLocationPrivacyFields';
 
 const GREEN = '#2D6A4F';
@@ -56,7 +57,8 @@ export default function EditGroupScreen({ route, navigation }) {
       quality: 0.8,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
-      setImageUri(result.assets[0].uri);
+      const a = result.assets[0];
+      setImageUri(await compressImage(a.uri, { width: a.width }));
     }
   };
 
