@@ -23,7 +23,10 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingTop: insets.top }} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity style={styles.back} onPress={() => navigation?.goBack?.()}><Ionicons name="arrow-back" size={19} color="#3C4A42" /></TouchableOpacity>
+      {/* Splash artık replace ile geldiği için Login kök ekran — geri ok yalnızca gidilecek yer varsa görünür */}
+      {navigation?.canGoBack?.() ? (
+        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={19} color="#3C4A42" /></TouchableOpacity>
+      ) : null}
 
       <View style={{ paddingHorizontal: 24 }}>
         <View style={styles.logo}><Ionicons name="leaf" size={28} color={colors.white} /></View>

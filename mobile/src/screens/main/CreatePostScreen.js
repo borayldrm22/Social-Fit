@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Image, Alert, ScrollView, ActivityIndicator,
+  Image, Alert, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFormData } from '../../api/client';
 import { useApi } from '../../api/client';
@@ -20,6 +21,7 @@ export default function CreatePostScreen({ navigation, route }) {
   const api = useApi();
   const { token } = useAuth();
   const { celebrate } = useStarReward();
+  const headerHeight = useHeaderHeight();
   const [type, setType] = useState(route.params?.prefillType || 'meal'); // 'meal' | 'workout' | 'text'
   const [caption, setCaption] = useState(route.params?.prefillCaption || '');
   const [media, setMedia] = useState(null); // { uri, isVideo }
@@ -114,6 +116,11 @@ export default function CreatePostScreen({ navigation, route }) {
   };
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerHeight}
+    >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Öğün / Spor tag seçimi */}
       <Text style={styles.sectionLabel}>İçerik türü</Text>
@@ -197,6 +204,7 @@ export default function CreatePostScreen({ navigation, route }) {
         )}
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

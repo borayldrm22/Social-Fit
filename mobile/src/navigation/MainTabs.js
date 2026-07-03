@@ -341,7 +341,7 @@ export default function MainTabs() {
               <View style={[fabStyles.menuIcon, { backgroundColor: '#F59E0B18' }]}>
                 <Ionicons name="restaurant-outline" size={22} color="#F59E0B" />
               </View>
-              <Text style={fabStyles.menuText}>Beslenme</Text>
+              <Text style={fabStyles.menuText}>Bugün Yediklerim</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
