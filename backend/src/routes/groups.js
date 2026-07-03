@@ -1,24 +1,17 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds } = require('../lib/streakStats');
 const { awardPoints } = require('../services/starService');
 const { createNotification } = require('./notifications');
+const { uploadFile } = require('../services/storageService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => cb(null, `group-${uuidv4()}${path.extname(file.originalname) || '.jpg'}`),
-});
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.use(authMiddleware);
 
@@ -171,7 +164,7 @@ router.patch(
       const data = {};
       if (req.body.name?.trim()) data.name = req.body.name.trim();
       if (req.body.description !== undefined) data.description = req.body.description.trim() || null;
-      if (req.file) data.imageUrl = `${BASE_URL}/uploads/${req.file.filename}`;
+      if (req.file) data.imageUrl = await uploadFile(req.file.buffer, { prefix: 'group', originalname: req.file.originalname, contentType: req.file.mimetype });
       if (req.body.latitude !== undefined && req.body.latitude !== '') { const v = parseFloat(req.body.latitude); if (Number.isFinite(v)) data.latitude = v; }
       if (req.body.longitude !== undefined && req.body.longitude !== '') { const v = parseFloat(req.body.longitude); if (Number.isFinite(v)) data.longitude = v; }
       if (req.body.locationName !== undefined) data.locationName = req.body.locationName.trim() || null;
@@ -215,7 +208,7 @@ router.post(
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
       let imageUrl = null;
-      if (req.file) imageUrl = `${BASE_URL}/uploads/${req.file.filename}`;
+      if (req.file) imageUrl = await uploadFile(req.file.buffer, { prefix: 'group', originalname: req.file.originalname, contentType: req.file.mimetype });
       const lat = req.body.latitude !== undefined && req.body.latitude !== '' ? parseFloat(req.body.latitude) : null;
       const lng = req.body.longitude !== undefined && req.body.longitude !== '' ? parseFloat(req.body.longitude) : null;
       const group = await prisma.group.create({

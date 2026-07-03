@@ -98,15 +98,20 @@ async function recordStreak(userId) {
   });
 
   // Yıldız puanı — yalnızca günün ilk aktivitesinde (günde max 1)
+  let awarded = 0;
+  let bonus = 0;
   if (isFirstToday && updated) {
+    awarded = DAILY_POST_POINTS;
     await awardPoints(userId, DAILY_POST_POINTS, 'post_created', updated.id);
     // Haftalık seri bonusu: 7, 14, 21... günde
     if (updated.count % 7 === 0) {
+      bonus = WEEKLY_STREAK_BONUS;
       await awardPoints(userId, WEEKLY_STREAK_BONUS, 'streak_weekly', updated.id);
     }
   }
 
-  return updated;
+  // Mobil kutlama animasyonu için kazanılan puanı da döndür (awarded/bonus)
+  return { ...updated, awarded, bonus };
 }
 
 // Record activity for today (call when user posts or logs a meal)

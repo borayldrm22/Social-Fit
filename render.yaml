@@ -1,0 +1,31 @@
+# Render Blueprint — Social Fit API (Express)
+# Kullanım: Render dashboard → New → Blueprint → repo'yu seç. Secret env'ler
+# (sync:false) dashboard'da elle girilir; JWT_SECRET otomatik üretilir.
+services:
+  - type: web
+    name: social-fit-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true          # Render güçlü rastgele değer üretir
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: SUPABASE_BUCKET
+        value: uploads
+      - key: DATABASE_URL            # Supabase pooled (6543, ?pgbouncer=true)
+        sync: false
+      - key: DIRECT_URL              # Supabase direct (5432)
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY    # service_role — yalnız sunucuda
+        sync: false
+      - key: BASE_URL               # Render servis URL'in
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

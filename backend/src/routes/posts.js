@@ -1,24 +1,17 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds } = require('../lib/streakStats');
 const { awardPoints } = require('../services/starService');
 const { recordStreak } = require('./streaks');
+const { uploadFile } = require('../services/storageService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => cb(null, `post-${uuidv4()}${path.extname(file.originalname) || '.jpg'}`),
-});
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB for videos
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB for videos
 
 router.use(authMiddleware);
 
@@ -32,22 +25,38 @@ function parseMetadata(s) {
   try { return s ? JSON.parse(s) : null; } catch (_) { return null; }
 }
 
+function hasSavedPostModel() {
+  return prisma.savedPost && typeof prisma.savedPost.findMany === 'function';
+}
+
+async function getSavedPostIds(viewerId, postIds) {
+  if (!hasSavedPostModel()) return [];
+  try {
+    const savedRows = await prisma.savedPost.findMany({
+      where: { userId: viewerId, postId: { in: postIds } },
+      select: { postId: true },
+    });
+    return savedRows.map((row) => row.postId);
+  } catch (e) {
+    if (e.code === 'P2021') return [];
+    throw e;
+  }
+}
+
 async function decoratePosts(items, viewerId) {
   const authorIds = items.map((p) => p.user.id);
   const postIds = items.map((p) => p.id);
+  const savedPostIdsPromise = getSavedPostIds(viewerId, postIds);
   const [starPointsMap, likes, savedPosts] = await Promise.all([
     getStarPointsForUserIds(prisma, authorIds),
     prisma.like.findMany({
       where: { userId: viewerId, postId: { in: postIds } },
       select: { postId: true },
     }),
-    prisma.savedPost.findMany({
-      where: { userId: viewerId, postId: { in: postIds } },
-      select: { postId: true },
-    }),
+    savedPostIdsPromise,
   ]);
   const likedIds = new Set(likes.map((like) => like.postId));
-  const savedIds = new Set(savedPosts.map((saved) => saved.postId));
+  const savedIds = new Set(savedPosts);
   return items.map((p) => {
     const user = { ...p.user, starPoints: starPointsMap[p.user.id] ?? 0 };
     return {
@@ -151,18 +160,25 @@ router.get('/discover', async (req, res, next) => {
 // Saved posts
 router.get('/saved', async (req, res, next) => {
   try {
-    const savedRows = await prisma.savedPost.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        post: {
-          include: {
-            user: { select: { id: true, profile: true } },
-            _count: { select: { likes: true, comments: true } },
+    if (!hasSavedPostModel()) return res.json({ posts: [] });
+    let savedRows = [];
+    try {
+      savedRows = await prisma.savedPost.findMany({
+        where: { userId: req.user.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          post: {
+            include: {
+              user: { select: { id: true, profile: true } },
+              _count: { select: { likes: true, comments: true } },
+            },
           },
         },
-      },
-    });
+      });
+    } catch (e) {
+      if (e.code === 'P2021') return res.json({ posts: [] });
+      throw e;
+    }
     const posts = savedRows.map((row) => ({ ...row.post, savedAt: row.createdAt }));
     const decoratedPosts = await decoratePosts(posts, req.user.id);
     res.json({ posts: decoratedPosts });
@@ -191,8 +207,8 @@ router.post(
       const metadataObj = req.body.metadata ? (typeof req.body.metadata === 'string' ? JSON.parse(req.body.metadata) : req.body.metadata) : null;
       const metadataStr = metadataObj ? JSON.stringify(metadataObj) : null;
       let imageUrl = null;
-      if (req.file) imageUrl = `${BASE_URL}/uploads/${req.file.filename}`;
-      console.log('[POST /api/posts] body:', req.body, 'file:', req.file?.filename);
+      if (req.file) imageUrl = await uploadFile(req.file.buffer, { prefix: 'post', originalname: req.file.originalname, contentType: req.file.mimetype });
+      console.log('[POST /api/posts] body:', req.body, 'file:', req.file?.originalname);
       const post = await prisma.post.create({
         data: {
           userId: req.user.id,
@@ -267,6 +283,9 @@ router.delete('/:id/like', async (req, res, next) => {
 // Save post
 router.post('/:id/save', async (req, res, next) => {
   try {
+    if (!hasSavedPostModel()) {
+      return res.status(503).json({ error: 'Kaydetme ozelligi icin migration gerekli. Backend icinde "npx prisma migrate dev" calistirin.' });
+    }
     const post = await prisma.post.findUnique({
       where: { id: req.params.id },
       select: { id: true },
@@ -277,6 +296,9 @@ router.post('/:id/save', async (req, res, next) => {
     });
     res.json({ saved: true });
   } catch (e) {
+    if (e.code === 'P2021') {
+      return res.status(503).json({ error: 'Kaydetme ozelligi icin tablo olusmamis. Backend icinde "npx prisma db push" calistirin.' });
+    }
     if (e.code === 'P2002') {
       res.json({ saved: true });
       return;
@@ -288,11 +310,17 @@ router.post('/:id/save', async (req, res, next) => {
 // Unsave post
 router.delete('/:id/save', async (req, res, next) => {
   try {
+    if (!hasSavedPostModel()) {
+      return res.status(503).json({ error: 'Kaydetme ozelligi icin migration gerekli. Backend icinde "npx prisma migrate dev" calistirin.' });
+    }
     await prisma.savedPost.delete({
       where: { userId_postId: { userId: req.user.id, postId: req.params.id } },
     });
     res.json({ saved: false });
   } catch (e) {
+    if (e.code === 'P2021') {
+      return res.status(503).json({ error: 'Kaydetme ozelligi icin tablo olusmamis. Backend icinde "npx prisma db push" calistirin.' });
+    }
     if (e.code === 'P2025') return res.json({ saved: false });
     next(e);
   }
