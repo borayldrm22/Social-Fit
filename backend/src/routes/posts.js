@@ -114,7 +114,7 @@ router.get('/discover', async (req, res, next) => {
 
     // Raw SQL ile public profile'lı user id'leri çek
     const publicProfiles = await prisma.$queryRaw`
-      SELECT user_id FROM "Profile" WHERE is_public = 1
+      SELECT user_id FROM "Profile" WHERE is_public = true
     `;
     const publicUserIds = publicProfiles.map((r) => r.user_id);
 

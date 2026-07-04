@@ -13,7 +13,7 @@ async function createNotification(userId, fromUserId, type, postId = null) {
   try {
     await prisma.$executeRaw`
       INSERT INTO notifications (id, user_id, from_user_id, type, post_id, read, created_at)
-      VALUES (${uuidv4()}, ${userId}, ${fromUserId}, ${type}, ${postId}, 0, CURRENT_TIMESTAMP)
+      VALUES (${uuidv4()}, ${userId}, ${fromUserId}, ${type}, ${postId}, false, CURRENT_TIMESTAMP)
     `;
   } catch (e) {
     console.error('[createNotification] error:', e.message);
@@ -48,7 +48,7 @@ router.get('/', async (req, res, next) => {
 router.post('/read-all', async (req, res, next) => {
   try {
     await prisma.$executeRaw`
-      UPDATE notifications SET read = 1 WHERE user_id = ${req.user.id}
+      UPDATE notifications SET read = true WHERE user_id = ${req.user.id}
     `;
     res.json({ ok: true });
   } catch (e) {
@@ -60,7 +60,7 @@ router.post('/read-all', async (req, res, next) => {
 router.get('/unread-count', async (req, res, next) => {
   try {
     const rows = await prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM notifications WHERE user_id = ${req.user.id} AND read = 0
+      SELECT COUNT(*) as count FROM notifications WHERE user_id = ${req.user.id} AND read = false
     `;
     res.json({ count: Number(rows[0]?.count ?? 0) });
   } catch (e) {
@@ -89,7 +89,7 @@ router.post('/follow-requests/:fromUserId/accept', async (req, res, next) => {
     await createNotification(fromUserId, req.user.id, 'follow_accepted');
     // İlgili follow_request bildirimini okundu yap
     await prisma.$executeRaw`
-      UPDATE notifications SET read = 1
+      UPDATE notifications SET read = true
       WHERE user_id = ${req.user.id} AND from_user_id = ${fromUserId} AND type = 'follow_request'
     `;
     res.json({ ok: true });
@@ -106,7 +106,7 @@ router.post('/follow-requests/:fromUserId/reject', async (req, res, next) => {
       where: { userId: fromUserId, friendId: req.user.id, status: 'pending' },
     });
     await prisma.$executeRaw`
-      UPDATE notifications SET read = 1
+      UPDATE notifications SET read = true
       WHERE user_id = ${req.user.id} AND from_user_id = ${fromUserId} AND type = 'follow_request'
     `;
     res.json({ ok: true });

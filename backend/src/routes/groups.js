@@ -330,7 +330,7 @@ router.post('/:id/requests/:userId/approve', async (req, res, next) => {
     });
     if (award === 0) await awardPoints(req.params.userId, 10, 'group_joined', req.params.id);
     await createNotification(req.params.userId, req.user.id, 'group_join_accepted', req.params.id);
-    await prisma.$executeRaw`UPDATE notifications SET read = 1 WHERE user_id = ${req.user.id} AND from_user_id = ${req.params.userId} AND type = 'group_join_request' AND post_id = ${req.params.id}`;
+    await prisma.$executeRaw`UPDATE notifications SET read = true WHERE user_id = ${req.user.id} AND from_user_id = ${req.params.userId} AND type = 'group_join_request' AND post_id = ${req.params.id}`;
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -344,7 +344,7 @@ router.post('/:id/requests/:userId/reject', async (req, res, next) => {
     await prisma.groupJoinRequest.deleteMany({
       where: { userId: req.params.userId, groupId: req.params.id },
     });
-    await prisma.$executeRaw`UPDATE notifications SET read = 1 WHERE user_id = ${req.user.id} AND from_user_id = ${req.params.userId} AND type = 'group_join_request' AND post_id = ${req.params.id}`;
+    await prisma.$executeRaw`UPDATE notifications SET read = true WHERE user_id = ${req.user.id} AND from_user_id = ${req.params.userId} AND type = 'group_join_request' AND post_id = ${req.params.id}`;
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
