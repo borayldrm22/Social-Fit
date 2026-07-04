@@ -269,13 +269,13 @@ router.get('/search', async (req, res, next) => {
     const q = (req.query.q || '').trim();
     if (!q) return res.json([]);
 
-    // SQLite: LIKE is case-insensitive for ASCII by default
+    // Postgres: ILIKE = case-insensitive arama (SQLite'da LIKE zaten insensitive'di)
     const users = await prisma.$queryRaw`
       SELECT u.id, p.display_name as displayName, p.avatar_url as avatarUrl, p.goal_note as goalNote
       FROM "User" u
       JOIN "Profile" p ON p.user_id = u.id
       WHERE u.id != ${req.user.id}
-        AND p.display_name LIKE ${'%' + q + '%'}
+        AND p.display_name ILIKE ${'%' + q + '%'}
       LIMIT 20
     `;
 
