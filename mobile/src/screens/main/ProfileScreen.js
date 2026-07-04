@@ -1,6 +1,6 @@
 // ProfileScreen.js — SocialFit redesign · Profil + Streak + Rozetler (gerçek veri)
 // Konum: src/screens/main/ProfileScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Image, Share, LayoutAnimation, Platform, UIManager, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,6 +55,7 @@ export default function ProfileScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     if (!user?.id) { setLoading(false); return; }
@@ -82,13 +83,14 @@ export default function ProfileScreen({ navigation }) {
       setWeek(buildWeek(cal?.days));
       const list = Array.isArray(posts) ? posts : (Array.isArray(posts?.posts) ? posts.posts : []);
       setPostList(list);
+      loadedOnce.current = true;
     } catch (e) {
       setError('Profil verileri şu an yüklenemiyor. Lütfen tekrar dene.');
     } finally {
       setLoading(false);
     }
   }, [api, user]);
-  useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
+  useFocusEffect(useCallback(() => { if (!loadedOnce.current) setLoading(true); load(); }, [load]));
 
   const shareProfile = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

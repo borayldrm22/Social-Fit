@@ -1,7 +1,7 @@
 // NutritionScreen.js — SocialFit · Beslenme / günlük yemek takibi (gerçek FoodLog verisi)
 // Konum: src/screens/main/NutritionScreen.js
 // Backend: GET /api/foodlog?date=YYYY-MM-DD -> { totalCalories, goalCalories, remaining, meals }
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,6 +67,7 @@ export default function NutritionScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -74,6 +75,7 @@ export default function NutritionScreen({ navigation }) {
       const d = await api.get(`/api/foodlog?date=${todayStr()}`);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setData(d && d.meals ? d : EMPTY);
+      loadedOnce.current = true;
     } catch (e) {
       setData(EMPTY);
       setError('Beslenme verileri su an yuklenemiyor. Lutfen tekrar dene.');
@@ -81,7 +83,7 @@ export default function NutritionScreen({ navigation }) {
       setLoading(false);
     }
   }, [api]);
-  useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
+  useFocusEffect(useCallback(() => { if (!loadedOnce.current) setLoading(true); load(); }, [load]));
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
 

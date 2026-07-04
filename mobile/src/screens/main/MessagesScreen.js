@@ -7,7 +7,7 @@
 //
 // Navigasyon: Chat ekranına { userId, profile } ile geçer.
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -67,12 +67,14 @@ export default function MessagesScreen({ navigation }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     try {
       const data = await api.get('/api/messages/conversations');
       setItems(Array.isArray(data) ? data : []);
+      loadedOnce.current = true;
     } catch (e) {
       setItems([]);
     } finally {
