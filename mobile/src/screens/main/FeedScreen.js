@@ -1,10 +1,11 @@
 // FeedScreen.js — SocialFit redesign · Ana akış
 // Konum: src/screens/main/FeedScreen.js
 // Backend: GET /posts (varsa). Erişilemezse MOCK ile render olur.
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Share, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Video, ResizeMode } from 'expo-av';
 import { useFocusEffect } from '@react-navigation/native';
 import { useApi } from '../../api/client';
 import { API_BASE } from '../../config';
@@ -56,6 +57,55 @@ function mapPost(p) {
   };
 }
 
+const VIDEO_RE = /\.(mp4|mov|m4v|webm)(\?|$)/i;
+
+// 4:5 (0.8) portre ile 1.91:1 manzara arası — aşırı uzun/geniş medyayı sınırla
+function clampRatio(r) {
+  return Math.min(1.91, Math.max(0.8, r));
+}
+
+// Feed medyası — görsel doğal en-boy oranıyla (sabit 208 crop yerine), video ise expo-av oynatıcı.
+function FeedMedia({ uri, kcal }) {
+  const isVideo = VIDEO_RE.test(uri || '');
+  const [ratio, setRatio] = useState(isVideo ? 1 : 1.25); // w/h; yüklenene kadar makul varsayılan
+
+  useEffect(() => {
+    if (!uri || isVideo) return;
+    let active = true;
+    Image.getSize(uri, (w, h) => { if (active && w && h) setRatio(clampRatio(w / h)); }, () => {});
+    return () => { active = false; };
+  }, [uri, isVideo]);
+
+  const kcalTag = kcal ? (
+    <View style={styles.kcalTag}><Text style={styles.kcalText}>{kcal} kcal</Text></View>
+  ) : null;
+
+  if (isVideo) {
+    return (
+      <View style={[styles.mediaBox, { aspectRatio: ratio, backgroundColor: '#000' }]}>
+        <Video
+          source={{ uri }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode={ResizeMode.CONTAIN}
+          useNativeControls
+          isLooping
+          onReadyForDisplay={(e) => {
+            const ns = e?.naturalSize;
+            if (ns?.width && ns?.height) setRatio(clampRatio(ns.width / ns.height));
+          }}
+        />
+        {kcalTag}
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.mediaBox, { aspectRatio: ratio }]}>
+      <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      {kcalTag}
+    </View>
+  );
+}
+
 function PostCard({ item, onLike, onComment, onShare, onOpenProfile, onMenu, onBookmark }) {
   return (
     <View style={styles.card}>
@@ -77,12 +127,7 @@ function PostCard({ item, onLike, onComment, onShare, onOpenProfile, onMenu, onB
 
       {item.hasImage ? (
         item.imageUrl ? (
-          <View style={{ marginHorizontal: 14, borderRadius: 18, overflow: 'hidden' }}>
-            <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 208 }} resizeMode="cover" />
-            {item.kcal ? (
-              <View style={styles.kcalTag}><Text style={styles.kcalText}>{item.kcal} kcal</Text></View>
-            ) : null}
-          </View>
+          <FeedMedia uri={item.imageUrl} kcal={item.kcal} />
         ) : (
           <Placeholder height={208} radius={18} label="öğün fotoğrafı" style={{ marginHorizontal: 14 }}>
             {item.kcal ? (
@@ -123,6 +168,21 @@ export default function FeedScreen({ navigation }) {
   const [tab, setTab] = useState('friends');
   const [refreshing, setRefreshing] = useState(false);
   const loadedOnce = useRef(false);
+
+  // Görüntülenme sayacı — her post oturumda 1 kez, göründüğünde raporlanır
+  const seenViewsRef = useRef(new Set());
+  const apiRef = useRef(api);
+  apiRef.current = api;
+  const onViewRef = useRef(({ viewableItems }) => {
+    viewableItems.forEach((v) => {
+      const id = v.item?.id;
+      if (id && !seenViewsRef.current.has(id)) {
+        seenViewsRef.current.add(id);
+        apiRef.current.post(`/api/posts/${id}/view`).catch(() => {});
+      }
+    });
+  });
+  const viewConfigRef = useRef({ itemVisiblePercentThreshold: 60 });
 
   const load = useCallback(async () => {
     const endpoint = tab === 'discover' ? '/api/posts/discover' : '/api/posts/feed';
@@ -214,6 +274,8 @@ export default function FeedScreen({ navigation }) {
           )
         }
         contentContainerStyle={{ paddingBottom: 24, paddingTop: 4, flexGrow: 1 }}
+        onViewableItemsChanged={onViewRef.current}
+        viewabilityConfig={viewConfigRef.current}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       />
     </View>
@@ -240,6 +302,7 @@ const styles = StyleSheet.create({
   headInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11 },
   name: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },
   meta: { fontSize: 12, color: colors.faint, marginTop: 3, fontFamily: font.body },
+  mediaBox: { marginHorizontal: 14, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.divider },
   kcalTag: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(17,35,27,0.78)', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 12 },
   kcalText: { fontFamily: font.displayBold, fontSize: 12, color: colors.white },
   body: { fontSize: 14, color: colors.text, lineHeight: 21, paddingHorizontal: 16, paddingTop: 11 },

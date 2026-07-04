@@ -8,7 +8,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useApi } from '../../api/client';
 import { API_BASE } from '../../config';
 import { colors, font, shadow } from '../../theme/socialFitTheme';
-import { comingSoon } from '../../utils/comingSoon';
 
 // Backend grubuna sabit emoji/renk atamak için (isimden deterministik)
 const EMOJIS = ['🧓', '🥦', '🏃', '🍬', '👶', '💪', '🧘', '🥗', '🚴', '⚽'];
@@ -70,9 +69,6 @@ export default function GroupsScreen({ navigation }) {
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <Text style={styles.title}>Topluluk</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => comingSoon('Grup arama')}>
-              <Ionicons name="search" size={19} color={colors.text} />
-            </TouchableOpacity>
             <TouchableOpacity style={styles.iconBtnGreen} activeOpacity={0.85} onPress={() => navigation.navigate('CreateGroup')}>
               <Ionicons name="add" size={20} color={colors.white} />
             </TouchableOpacity>
@@ -154,7 +150,6 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontFamily: font.displayBold, fontSize: 22, color: colors.ink, letterSpacing: -0.3 },
   headerActions: { flexDirection: 'row', gap: 8 },
-  iconBtn: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   iconBtnGreen: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 18, marginBottom: 10 },
   sectionTitle: { fontFamily: font.bodyBold, fontSize: 16, color: colors.ink },

@@ -369,7 +369,7 @@ router.get('/:id/posts', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: 18,
       select: {
-        id: true, type: true, imageUrl: true, caption: true, createdAt: true,
+        id: true, type: true, imageUrl: true, caption: true, createdAt: true, viewCount: true,
         _count: { select: { likes: true, comments: true } },
       },
     });

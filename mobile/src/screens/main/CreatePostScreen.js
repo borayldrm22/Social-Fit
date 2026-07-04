@@ -146,8 +146,8 @@ export default function CreatePostScreen({ navigation, route }) {
           onPress={() => { setType('text'); setMedia(null); }}
           activeOpacity={0.8}
         >
-          <Text style={styles.typeEmoji}>📝</Text>
-          <Text style={[styles.typeText, type === 'text' && styles.typeTextActive]}>Yazı</Text>
+          <Text style={styles.typeEmoji}>💭</Text>
+          <Text style={[styles.typeText, type === 'text' && styles.typeTextActive]}>Düşüncelerim</Text>
         </TouchableOpacity>
       </View>
 
@@ -183,7 +183,7 @@ export default function CreatePostScreen({ navigation, route }) {
       <Text style={styles.sectionLabel}>Açıklama</Text>
       <TextInput
         style={styles.input}
-        placeholder="Ne paylaşmak istersin?"
+        placeholder={type === 'text' ? 'Bugün ne düşünüyorsun?' : 'Ne paylaşmak istersin?'}
         placeholderTextColor="#9CA3AF"
         value={caption}
         onChangeText={setCaption}

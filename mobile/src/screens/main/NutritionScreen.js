@@ -240,9 +240,6 @@ export default function NutritionScreen({ navigation }) {
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('AddFood', { date: todayStr() })}>
-        <Ionicons name="add" size={28} color={colors.white} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -284,5 +281,4 @@ const styles = StyleSheet.create({
   tarifIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center' },
   tarifTitle: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },
   tarifSub: { fontSize: 12, color: colors.faint, fontFamily: font.body, marginTop: 2 },
-  fab: { position: 'absolute', right: 18, bottom: 18, width: 56, height: 56, borderRadius: 19, backgroundColor: colors.coral, alignItems: 'center', justifyContent: 'center', ...shadow.cta, shadowColor: colors.coral },
 });

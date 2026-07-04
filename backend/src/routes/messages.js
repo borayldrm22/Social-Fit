@@ -82,6 +82,18 @@ router.get('/conversations', async (req, res, next) => {
   }
 });
 
+// Toplam okunmamış mesaj sayısı (bottom tab badge için) — /:userId'den ÖNCE tanımlı olmalı
+router.get('/unread-count', async (req, res, next) => {
+  try {
+    const count = await prisma.message.count({
+      where: { receiverId: req.user.id, read: false },
+    });
+    res.json({ count });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Get messages with a user
 router.get('/:userId', async (req, res, next) => {
   try {

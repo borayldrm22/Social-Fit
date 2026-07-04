@@ -13,6 +13,7 @@ import {
   ToastAndroid,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import * as ImagePicker from 'expo-image-picker';
 import { useApi, uploadFormData } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -26,7 +27,7 @@ const MEAL_TYPES = [
   { key: 'dinner', label: 'Akşam', icon: 'moon-outline' },
   { key: 'snack', label: 'Atıştırma', icon: 'cafe-outline' },
 ];
-const PORTION_OPTIONS = [0.5, 1, 1.5, 2];
+const PORTION_OPTIONS = [1, 2, 3, 4];
 
 function showToast(msg) {
   if (Platform.OS === 'android') {
@@ -59,6 +60,7 @@ export default function AddFoodScreen({ navigation, route }) {
   const api = useApi();
   const { token } = useAuth();
   const { celebrate } = useStarReward();
+  const headerHeight = useHeaderHeight();
   const passedDate = route.params?.date;
   const passedMealType = route.params?.mealType;
 
@@ -145,7 +147,7 @@ export default function AddFoodScreen({ navigation, route }) {
   };
 
   const applyMultiplier = (nextMultiplier) => {
-    const safe = Math.min(4, Math.max(0.5, nextMultiplier));
+    const safe = Math.min(20, Math.max(1, Math.round(nextMultiplier)));
     setPortionMultiplier(safe);
     setCalories(baseNutrition.calories == null ? '' : formatCalories(baseNutrition.calories * safe));
     setProtein(baseNutrition.protein == null ? '' : formatNumeric(baseNutrition.protein * safe));
@@ -164,7 +166,7 @@ export default function AddFoodScreen({ navigation, route }) {
       fat: fat ? parseFloat(String(fat).replace(',', '.')) : undefined,
       note: undefined,
     };
-    const servingTag = `Adet: ${formatNumeric(portionMultiplier, 1)}x [serving:${formatNumeric(portionMultiplier, 1)}]`;
+    const servingTag = `Adet: ${portionMultiplier} [serving:${portionMultiplier}]`;
     const cleanNote = note.trim();
     payload.note = cleanNote ? `${cleanNote}\n${servingTag}` : servingTag;
     return payload;
@@ -230,7 +232,7 @@ export default function AddFoodScreen({ navigation, route }) {
   const showSearch = query.length >= 2;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={headerHeight}>
       <ScrollView
         style={styles.container}
         keyboardShouldPersistTaps="handled"
@@ -324,15 +326,15 @@ export default function AddFoodScreen({ navigation, route }) {
           <View style={styles.portionRow}>
             <TouchableOpacity
               style={styles.portionIconBtn}
-              onPress={() => applyMultiplier(portionMultiplier - 0.5)}
+              onPress={() => applyMultiplier(portionMultiplier - 1)}
               activeOpacity={0.75}
             >
               <Ionicons name="remove" size={18} color={colors.primary} />
             </TouchableOpacity>
-            <Text style={styles.portionText}>{formatNumeric(portionMultiplier, 1)}x</Text>
+            <Text style={styles.portionText}>{portionMultiplier} adet</Text>
             <TouchableOpacity
               style={styles.portionIconBtn}
-              onPress={() => applyMultiplier(portionMultiplier + 0.5)}
+              onPress={() => applyMultiplier(portionMultiplier + 1)}
               activeOpacity={0.75}
             >
               <Ionicons name="add" size={18} color={colors.primary} />
@@ -347,7 +349,7 @@ export default function AddFoodScreen({ navigation, route }) {
                 activeOpacity={0.75}
               >
                 <Text style={[styles.portionChipText, portionMultiplier === opt && styles.portionChipTextActive]}>
-                  {formatNumeric(opt, 1)}x
+                  {opt}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -473,7 +475,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.field - 6, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: colors.ink, backgroundColor: colors.bg, fontFamily: font.body },
   portionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   portionIconBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.mint, borderWidth: 1, borderColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center' },
-  portionText: { fontSize: 16, fontFamily: font.displayBold, color: colors.primary, minWidth: 50, textAlign: 'center' },
+  portionText: { fontSize: 16, fontFamily: font.displayBold, color: colors.primary, minWidth: 78, textAlign: 'center' },
   portionChips: { flexDirection: 'row', gap: 8, marginTop: 10 },
   portionChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
   portionChipActive: { borderColor: colors.primary, backgroundColor: colors.mint },
