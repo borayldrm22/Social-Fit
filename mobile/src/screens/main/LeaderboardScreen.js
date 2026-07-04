@@ -1,6 +1,6 @@
 // LeaderboardScreen.js — SocialFit redesign · Liderlik tablosu
 // Konum: src/screens/main/LeaderboardScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,9 +50,10 @@ export default function LeaderboardScreen({ navigation }) {
   const [data, setData] = useState({ top: [], rest: [], me: null });
   const [loading, setLoading] = useState(true);
   const [guideOpen, setGuideOpen] = useState(false);
+  const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     try {
       const res = await api.get(`/api/leaderboard?period=${period}&scope=${scope}`);
       const list = Array.isArray(res?.leaderboard) ? res.leaderboard : [];
@@ -62,6 +63,7 @@ export default function LeaderboardScreen({ navigation }) {
       const rest = list.filter((e) => e.rank >= 4).map(toRow);
       const me = res.myRank ? { rank: res.myRank, name: user?.profile?.displayName || 'Sen', avatarUrl: user?.profile?.avatarUrl, pts: res.myPoints ?? 0 } : null;
       setData({ top, rest, me });
+      loadedOnce.current = true;
     } catch (e) {
       setData({ top: [], rest: [], me: null });
     } finally {

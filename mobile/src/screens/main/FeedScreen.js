@@ -1,7 +1,7 @@
 // FeedScreen.js — SocialFit redesign · Ana akış
 // Konum: src/screens/main/FeedScreen.js
 // Backend: GET /posts (varsa). Erişilemezse MOCK ile render olur.
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Share, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -122,14 +122,16 @@ export default function FeedScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('friends');
   const [refreshing, setRefreshing] = useState(false);
+  const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     const endpoint = tab === 'discover' ? '/api/posts/discover' : '/api/posts/feed';
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     try {
       const d = await api.get(endpoint);
       const list = Array.isArray(d?.posts) ? d.posts : (Array.isArray(d) ? d : []);
       setPosts(list.map(mapPost));
+      loadedOnce.current = true;
     } catch (e) {
       setPosts([]);
     } finally {

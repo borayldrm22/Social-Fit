@@ -1,6 +1,6 @@
 // GroupsScreen.js — SocialFit redesign · Gruplar / Topluluk
 // Konum: src/screens/main/GroupsScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,12 +51,13 @@ export default function GroupsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedOnce = useRef(false);
 
   const load = useCallback(() => {
     let cancelled = false;
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     api.get('/api/groups')
-      .then((d) => { if (!cancelled) setChannels(Array.isArray(d) ? d.map(mapGroup) : []); })
+      .then((d) => { if (!cancelled) { setChannels(Array.isArray(d) ? d.map(mapGroup) : []); loadedOnce.current = true; } })
       .catch(() => { if (!cancelled) setChannels([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
