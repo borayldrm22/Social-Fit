@@ -26,6 +26,9 @@ const recipeRoutes = require('./routes/recipes');
 const { router: notificationRoutes } = require('./routes/notifications');
 
 const app = express();
+// Render/Heroku gibi tek reverse proxy arkasında: gerçek IP X-Forwarded-For'dan gelir.
+// rate-limit'in IP'yi doğru okuması için ilk proxy hop'una güven (true değil — spoofing riski).
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 4000;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 
