@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, Image, ActivityIndicator,
+  Alert, ScrollView, Image, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '../../api/client';
 import { compressImage } from '../../utils/image';
@@ -14,6 +15,7 @@ const GREEN_XL = '#D8F3DC';
 
 export default function CreateGroupScreen({ navigation }) {
   const api = useApi();
+  const headerHeight = useHeaderHeight();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [imageUri, setImageUri] = useState(null); // seçilen yerel görsel
@@ -69,6 +71,11 @@ export default function CreateGroupScreen({ navigation }) {
   };
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerHeight}
+    >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       {/* Fotoğraf seçici */}
@@ -127,6 +134,7 @@ export default function CreateGroupScreen({ navigation }) {
         }
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

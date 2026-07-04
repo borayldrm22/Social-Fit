@@ -326,6 +326,20 @@ router.delete('/:id/save', async (req, res, next) => {
   }
 });
 
+// Görüntülenme sayacı — feed'de post göründüğünde çağrılır (client oturum başına 1 kez)
+router.post('/:id/view', async (req, res, next) => {
+  try {
+    await prisma.post.update({
+      where: { id: req.params.id },
+      data: { viewCount: { increment: 1 } },
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    // Post silinmişse sessizce geç — görüntülenme kritik değil
+    res.json({ ok: false });
+  }
+});
+
 // Comments list
 router.get('/:id/comments', async (req, res, next) => {
   try {

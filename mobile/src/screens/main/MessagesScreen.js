@@ -12,6 +12,7 @@ import {
   View,
   Text,
   Image,
+  TextInput,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -65,9 +66,15 @@ export default function MessagesScreen({ navigation }) {
   const api = useApi();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState([]);
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const loadedOnce = useRef(false);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? items.filter((it) => (it.profile?.displayName || '').toLowerCase().includes(q))
+    : items;
 
   const load = useCallback(async () => {
     if (!loadedOnce.current) setLoading(true);
@@ -147,20 +154,39 @@ export default function MessagesScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Arama */}
-      <TouchableOpacity style={styles.search} activeOpacity={0.7} onPress={() => navigation.navigate('SearchUsers')}>
+      {/* Arama — ekran içinde filtreler */}
+      <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.faint} />
-        <Text style={styles.searchText}>Sohbetlerde ara</Text>
-      </TouchableOpacity>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Sohbetlerde ara"
+          placeholderTextColor={colors.faint}
+          value={query}
+          onChangeText={setQuery}
+          returnKeyType="search"
+          autoCapitalize="none"
+        />
+        {query ? (
+          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={18} color={colors.faint} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       <FlatList
-        data={items}
+        data={filtered}
         keyExtractor={(it) => it.userId}
         renderItem={renderItem}
+        keyboardShouldPersistTaps="handled"
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator color={colors.primary} size="large" style={{ marginTop: 60 }} />
+          ) : q ? (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="search-outline" size={42} color={colors.faint} />
+              <Text style={styles.emptyText}>"{query}" ile eşleşen sohbet yok</Text>
+            </View>
           ) : (
             <View style={styles.emptyWrap}>
               <Ionicons name="chatbubbles-outline" size={42} color={colors.faint} />
@@ -192,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
     borderRadius: 15, paddingHorizontal: 14, paddingVertical: 12,
   },
-  searchText: { fontSize: 14, color: colors.faint, fontFamily: font.body },
+  searchInput: { flex: 1, fontSize: 14, color: colors.ink, fontFamily: font.body, paddingVertical: 0 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 18, paddingVertical: 12 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },

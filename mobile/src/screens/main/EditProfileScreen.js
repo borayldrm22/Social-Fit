@@ -82,7 +82,7 @@ export default function EditProfileScreen({ navigation }) {
         </View>
       )}
       <TextInput style={styles.input} placeholder="Görünen ad" value={displayName} onChangeText={setDisplayName} />
-      <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Hedefler (her satıra bir hedef)" value={goalNote} onChangeText={setGoalNote} multiline numberOfLines={3} />
+      <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Biyografi — kendinden bahset" value={goalNote} onChangeText={setGoalNote} multiline numberOfLines={3} />
       <TextInput style={styles.input} placeholder="Kilo (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" />
       <TextInput style={styles.input} placeholder="Boy (cm)" value={heightCm} onChangeText={setHeightCm} keyboardType="decimal-pad" />
       <TextInput style={styles.input} placeholder="Günlük kalori hedefi" value={dailyCalorieGoal} onChangeText={setDailyCalorieGoal} keyboardType="number-pad" />

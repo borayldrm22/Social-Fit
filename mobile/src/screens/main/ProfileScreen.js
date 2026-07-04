@@ -102,6 +102,11 @@ export default function ProfileScreen({ navigation }) {
     navigation.navigate('EditProfile');
   };
 
+  const goSettings = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('Settings');
+  };
+
   const badges = [
     { emoji: '🔥', label: '7 Gün', on: p.streak >= 7 },
     { emoji: '⚡', label: '14 Gün', on: p.streak >= 14 },
@@ -120,17 +125,45 @@ export default function ProfileScreen({ navigation }) {
       <LinearGradient colors={['#1B8659', colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cover, { paddingTop: insets.top + 8 }]}>
         <View style={styles.coverTop}>
           <View />
-          <TouchableOpacity hitSlop={8} onPress={shareProfile}><Ionicons name="share-social-outline" size={20} color={colors.white} /></TouchableOpacity>
-        </View>
-        <View style={{ alignItems: 'center', marginTop: 12 }}>
-          <Avatar profile={p} size={88} style={{ borderRadius: 30, borderWidth: 4, borderColor: 'rgba(255,255,255,0.85)' }} />
-          <Text style={styles.dn}>{p.displayName || 'Kullanıcı'}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <View style={styles.starPill}><Text style={styles.starPillText} selectable>⭐ {p.stars.toLocaleString('tr-TR')}</Text></View>
-            {p.rank ? <View style={styles.rankPill}><Text style={styles.rankPillText} selectable>🏆 #{p.rank}</Text></View> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            <TouchableOpacity hitSlop={8} onPress={shareProfile}><Ionicons name="share-social-outline" size={21} color={colors.white} /></TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={goSettings}><Ionicons name="settings-outline" size={21} color={colors.white} /></TouchableOpacity>
           </View>
-          {p.goalNote ? <Text style={styles.bio}>{p.goalNote}</Text> : null}
         </View>
+
+        {/* Avatar sol + istatistikler sağ */}
+        <View style={styles.headRow}>
+          <Avatar profile={p} size={80} style={{ borderRadius: 26, borderWidth: 3, borderColor: 'rgba(255,255,255,0.85)' }} />
+          <View style={styles.statsInline}>
+            {[[p.posts, 'Paylaşım'], [p.followers, 'Takipçi'], [p.following, 'Takip']].map(([n, l], i) => (
+              <View key={i} style={styles.statInline}>
+                <Text style={styles.statInlineNum} selectable>{n}</Text>
+                <Text style={styles.statInlineLbl}>{l}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <Text style={styles.dn}>{p.displayName || 'Kullanıcı'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <View style={styles.starPill}><Text style={styles.starPillText} selectable>⭐ {p.stars.toLocaleString('tr-TR')}</Text></View>
+          {p.rank ? <View style={styles.rankPill}><Text style={styles.rankPillText} selectable>🏆 #{p.rank}</Text></View> : null}
+        </View>
+
+        {/* Biyografi — dokununca düzenle */}
+        <TouchableOpacity activeOpacity={0.7} onPress={goEditProfile}>
+          {p.goalNote ? (
+            <Text style={styles.bio}>{p.goalNote}</Text>
+          ) : (
+            <Text style={styles.bioEmpty}>+ Biyografi ekle</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Küçük profili düzenle butonu */}
+        <TouchableOpacity style={styles.editBtnSmall} activeOpacity={0.85} onPress={goEditProfile}>
+          <Ionicons name="create-outline" size={14} color={colors.white} />
+          <Text style={styles.editTextSmall}>Profili Düzenle</Text>
+        </TouchableOpacity>
       </LinearGradient>
 
       {loading ? (
@@ -171,22 +204,6 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      {/* İstatistik */}
-      <View style={styles.statsCard}>
-        {[[p.posts, 'Paylaşım'], [p.followers, 'Takipçi'], [p.following, 'Takip']].map(([n, l], i) => (
-          <View key={i} style={[styles.stat, i < 2 && { borderRightWidth: 1, borderRightColor: colors.divider }]}>
-            <Text style={styles.statNum} selectable>{n}</Text>
-            <Text style={styles.statLbl}>{l}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Profili düzenle */}
-      <TouchableOpacity style={styles.editBtn} activeOpacity={0.85} onPress={goEditProfile}>
-        <Ionicons name="create-outline" size={18} color={colors.primary} />
-        <Text style={styles.editText}>Profili Düzenle</Text>
-      </TouchableOpacity>
-
       {/* Rozetler */}
       <View style={{ marginHorizontal: 16, marginTop: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
@@ -225,8 +242,8 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                   )}
                   <View style={styles.cellOverlay}>
-                    <Ionicons name="heart" size={11} color="#fff" />
-                    <Text style={styles.cellLikes}>{post._count?.likes ?? 0}</Text>
+                    <Ionicons name="eye" size={12} color="#fff" />
+                    <Text style={styles.cellLikes}>{post.viewCount ?? 0}</Text>
                   </View>
                 </View>
               );
@@ -244,12 +261,20 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   cover: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
   coverTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dn: { fontFamily: font.displayBold, fontSize: 21, color: colors.white, marginTop: 11 },
+  headRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 18 },
+  statsInline: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
+  statInline: { alignItems: 'center' },
+  statInlineNum: { fontFamily: font.displayBold, fontSize: 19, color: colors.white, fontVariant: ['tabular-nums'] },
+  statInlineLbl: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontFamily: font.bodyBold, marginTop: 2 },
+  dn: { fontFamily: font.displayBold, fontSize: 20, color: colors.white, marginTop: 14 },
   starPill: { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 11 },
   starPillText: { fontFamily: font.bodyBold, fontSize: 12, color: '#FFE9A8', fontVariant: ['tabular-nums'] },
   rankPill: { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 11 },
   rankPillText: { fontFamily: font.bodyBold, fontSize: 12, color: colors.white, fontVariant: ['tabular-nums'] },
-  bio: { fontSize: 13, color: '#C7E6D5', marginTop: 8, fontFamily: font.body, textAlign: 'center', paddingHorizontal: 24 },
+  bio: { fontSize: 13.5, color: '#C7E6D5', marginTop: 10, fontFamily: font.body, lineHeight: 19 },
+  bioEmpty: { fontSize: 13.5, color: 'rgba(255,255,255,0.6)', marginTop: 10, fontFamily: font.body },
+  editBtnSmall: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', borderRadius: 11, paddingHorizontal: 14, paddingVertical: 7 },
+  editTextSmall: { color: colors.white, fontFamily: font.bodyBold, fontSize: 13 },
   errorCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 14, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.coralTint },
   errorText: { flex: 1, fontSize: 12, color: colors.coralDark, fontFamily: font.bodyBold },
   streakCard: { marginHorizontal: 16, marginTop: -18, backgroundColor: colors.surface, borderRadius: 24, ...shadow.card, padding: 16 },
@@ -259,12 +284,6 @@ const styles = StyleSheet.create({
   weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   dayBox: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   dayLbl: { fontSize: 11, color: colors.muted, fontFamily: font.bodyBold },
-  statsCard: { flexDirection: 'row', marginHorizontal: 16, marginTop: 14, backgroundColor: colors.surface, borderRadius: 20, ...shadow.soft, paddingVertical: 14 },
-  stat: { flex: 1, alignItems: 'center' },
-  statNum: { fontFamily: font.displayBold, fontSize: 20, color: colors.ink, fontVariant: ['tabular-nums'] },
-  statLbl: { fontSize: 11, color: colors.faint, fontFamily: font.bodyBold, marginTop: 2 },
-  editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, backgroundColor: colors.mint, borderRadius: 16, paddingVertical: 13 },
-  editText: { color: colors.primary, fontFamily: font.bodyBold, fontSize: 15 },
   sectionTitle: { fontFamily: font.bodyBold, fontSize: 16, color: colors.ink },
   sectionLink: { fontSize: 12, color: colors.primary, fontFamily: font.bodyBold },
   badge: { flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 12, alignItems: 'center', ...shadow.soft },

@@ -149,6 +149,7 @@ function GroupsStack() {
       <Stack.Screen name="GroupMap" component={GroupMapScreen} options={{ headerShown: false }} />
       <Stack.Screen name="GroupFeed" component={GroupFeedScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EditGroup" component={EditGroupScreen} options={{ title: 'Grubu Düzenle' }} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
     </Stack.Navigator>
   );
 }
@@ -204,6 +205,7 @@ function ProfileStack() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Profili Düzenle' }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
       <Stack.Screen
         name="OnboardingModal"
         component={OnboardingModalScreen}
@@ -219,6 +221,20 @@ export default function MainTabs() {
   const [shareDraft, setShareDraft] = useState(DEFAULT_FIRST_SHARE_CAPTION);
   const navRef = useRef(null);
   const { token } = useAuth();
+  const api = useApi();
+  const [msgUnread, setMsgUnread] = useState(0);
+
+  // Okunmamış mesaj sayısını periyodik çek → Messages tab badge'i
+  useEffect(() => {
+    if (!token) { setMsgUnread(0); return; }
+    let active = true;
+    const poll = () => api.get('/api/messages/unread-count')
+      .then((r) => { if (active) setMsgUnread(Number(r?.count) || 0); })
+      .catch(() => {});
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => { active = false; clearInterval(id); };
+  }, [api, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -287,7 +303,7 @@ export default function MainTabs() {
             ),
           }}
         />
-        <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false }} />
+        <Tab.Screen name="Messages" component={MessagesStack} options={{ title: 'Mesajlar', headerShown: false, tabBarBadge: msgUnread > 0 ? msgUnread : undefined }} />
         <Tab.Screen name="Profile" component={ProfileStack} options={{ title: 'Profil', headerShown: false }} />
         <Tab.Screen name="Nutrition" component={NutritionStack} options={{ title: 'Beslenme', headerShown: false, tabBarButton: () => null }} />
         <Tab.Screen name="More" component={MoreStack} options={{ title: 'Daha Fazla', tabBarButton: () => null }} />

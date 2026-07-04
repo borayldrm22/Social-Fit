@@ -25,24 +25,26 @@ function getInitial(name) {
   return (name || '?').charAt(0).toUpperCase();
 }
 
-function MemberRow({ member, isAdmin, isSelf, onKick }) {
+function MemberRow({ member, isAdmin, isSelf, onKick, onPress }) {
   return (
     <View style={styles.memberRow}>
-      {member.avatarUrl ? (
-        <Image source={{ uri: resolveUri(member.avatarUrl) }} style={styles.memberAvatar} />
-      ) : (
-        <View style={[styles.memberAvatar, styles.memberAvatarFallback]}>
-          <Text style={styles.memberAvatarInitial}>{getInitial(member.displayName)}</Text>
-        </View>
-      )}
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName} numberOfLines={1}>{member.displayName}</Text>
-        {member.role === 'admin' && (
-          <View style={styles.adminBadge}>
-            <Text style={styles.adminBadgeText}>👑 Admin</Text>
+      <TouchableOpacity style={styles.memberTap} onPress={onPress} activeOpacity={0.7}>
+        {member.avatarUrl ? (
+          <Image source={{ uri: resolveUri(member.avatarUrl) }} style={styles.memberAvatar} />
+        ) : (
+          <View style={[styles.memberAvatar, styles.memberAvatarFallback]}>
+            <Text style={styles.memberAvatarInitial}>{getInitial(member.displayName)}</Text>
           </View>
         )}
-      </View>
+        <View style={styles.memberInfo}>
+          <Text style={styles.memberName} numberOfLines={1}>{member.displayName}</Text>
+          {member.role === 'admin' && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminBadgeText}>👑 Admin</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
       {isAdmin && !isSelf && member.role !== 'admin' && (
         <TouchableOpacity onPress={() => onKick(member)} style={styles.kickBtn}>
           <Ionicons name="person-remove-outline" size={18} color={ORANGE} />
@@ -259,6 +261,7 @@ export default function GroupFeedScreen({ route, navigation }) {
             isAdmin={isAdmin}
             isSelf={m.userId === user?.id}
             onKick={kickMember}
+            onPress={() => navigation.navigate('UserProfile', { userId: m.userId })}
           />
         ))}
       </View>
@@ -340,18 +343,9 @@ export default function GroupFeedScreen({ route, navigation }) {
           </View>
         ) : null}
 
-        {isAdmin ? (
-          <TouchableOpacity
-            style={styles.aboutEditBtn}
-            onPress={() => navigation.navigate('EditGroup', { groupId })}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="pencil-outline" size={15} color={GREEN} />
-            <Text style={styles.aboutEditText}>Hakkındayı Düzenle</Text>
-          </TouchableOpacity>
-        ) : (
+        {!isAdmin ? (
           <Text style={styles.aboutHint}>Bu bilgileri yalnızca grup adminleri düzenleyebilir.</Text>
-        )}
+        ) : null}
       </View>
     );
   };
@@ -441,6 +435,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
+  memberTap: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   memberAvatar: { width: 44, height: 44, borderRadius: 22 },
   memberAvatarFallback: { backgroundColor: GREEN_XL, justifyContent: 'center', alignItems: 'center' },
   memberAvatarInitial: { fontSize: 18, fontWeight: '700', color: GREEN },
@@ -473,11 +468,6 @@ const styles = StyleSheet.create({
   aboutRowTitle: { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
   aboutRowValue: { fontSize: 14, color: '#111827', fontWeight: '600', marginTop: 1 },
   aboutMapLink: { fontSize: 13, color: GREEN, fontWeight: '700' },
-  aboutEditBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: GREEN_XL, borderRadius: 14, paddingVertical: 12, marginTop: 14,
-  },
-  aboutEditText: { fontSize: 14, fontWeight: '700', color: GREEN },
   aboutHint: { fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 14 },
 
   // Misc
