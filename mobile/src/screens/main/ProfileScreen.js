@@ -135,11 +135,17 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.headRow}>
           <Avatar profile={p} size={80} style={{ borderRadius: 26, borderWidth: 3, borderColor: 'rgba(255,255,255,0.85)' }} />
           <View style={styles.statsInline}>
-            {[[p.posts, 'Paylaşım'], [p.followers, 'Takipçi'], [p.following, 'Takip']].map(([n, l], i) => (
-              <View key={i} style={styles.statInline}>
+            {[[p.posts, 'Paylaşım', null], [p.followers, 'Takipçi', 'followers'], [p.following, 'Takip', 'following']].map(([n, l, listType], i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.statInline}
+                activeOpacity={listType ? 0.7 : 1}
+                disabled={!listType}
+                onPress={() => navigation.navigate('FollowList', { userId: user?.id, type: listType })}
+              >
                 <Text style={styles.statInlineNum} selectable>{n}</Text>
                 <Text style={styles.statInlineLbl}>{l}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>

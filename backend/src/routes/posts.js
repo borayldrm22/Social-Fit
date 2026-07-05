@@ -192,7 +192,7 @@ router.post(
   '/',
   upload.single('image'),
   [
-    body('type').optional().isIn(['meal', 'workout', 'text']),
+    body('type').optional().isIn(['meal', 'workout', 'text', 'general']),
     body('caption').optional().trim(),
     body('groupId').optional().isUUID(),
   ],

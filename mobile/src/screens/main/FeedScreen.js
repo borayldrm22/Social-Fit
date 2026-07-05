@@ -2,7 +2,7 @@
 // Konum: src/screens/main/FeedScreen.js
 // Backend: GET /posts (varsa). Erişilemezse MOCK ile render olur.
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Share, ActivityIndicator } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Share, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
@@ -33,9 +33,9 @@ function parseMeta(metadata) {
 // Backend post (/api/posts/feed) -> kart şekli
 function mapPost(p) {
   const meta = parseMeta(p.metadata);
-  const isMeal = p.type === 'meal';
-  let kind = isMeal ? '🥗 Öğün' : '💪 Antrenman';
-  if (!isMeal && meta.activity) kind += ` · ${meta.activity}`;
+  const KIND_LABELS = { meal: '🥗 Öğün', workout: '💪 Antrenman', text: '💭 Düşünce', general: '📣 Genel' };
+  let kind = KIND_LABELS[p.type] || KIND_LABELS.meal;
+  if (p.type === 'workout' && meta.activity) kind += ` · ${meta.activity}`;
   const imageUrl = p.imageUrl
     ? (p.imageUrl.startsWith('http') ? p.imageUrl : `${API_BASE}${p.imageUrl}`)
     : null;
@@ -65,7 +65,8 @@ function clampRatio(r) {
 }
 
 // Feed medyası — görsel doğal en-boy oranıyla (sabit 208 crop yerine), video ise expo-av oynatıcı.
-function FeedMedia({ uri, kcal }) {
+// onOpenImage: fotoğrafa dokununca tam ekran görüntüleyici (video native kontrollü, sarılmaz).
+function FeedMedia({ uri, kcal, onOpenImage }) {
   const isVideo = VIDEO_RE.test(uri || '');
   const [ratio, setRatio] = useState(isVideo ? 1 : 1.25); // w/h; yüklenene kadar makul varsayılan
 
@@ -99,14 +100,18 @@ function FeedMedia({ uri, kcal }) {
     );
   }
   return (
-    <View style={[styles.mediaBox, { aspectRatio: ratio }]}>
+    <TouchableOpacity
+      style={[styles.mediaBox, { aspectRatio: ratio }]}
+      activeOpacity={0.92}
+      onPress={() => onOpenImage?.(uri)}
+    >
       <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
       {kcalTag}
-    </View>
+    </TouchableOpacity>
   );
 }
 
-function PostCard({ item, onLike, onComment, onShare, onOpenProfile, onMenu, onBookmark }) {
+function PostCard({ item, onLike, onComment, onShare, onOpenProfile, onMenu, onBookmark, onOpenMedia }) {
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -127,7 +132,7 @@ function PostCard({ item, onLike, onComment, onShare, onOpenProfile, onMenu, onB
 
       {item.hasImage ? (
         item.imageUrl ? (
-          <FeedMedia uri={item.imageUrl} kcal={item.kcal} />
+          <FeedMedia uri={item.imageUrl} kcal={item.kcal} onOpenImage={onOpenMedia} />
         ) : (
           <Placeholder height={208} radius={18} label="öğün fotoğrafı" style={{ marginHorizontal: 14 }}>
             {item.kcal ? (
@@ -167,6 +172,8 @@ export default function FeedScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('friends');
   const [refreshing, setRefreshing] = useState(false);
+  const [viewerUri, setViewerUri] = useState(null); // tam ekran foto görüntüleyici
+  const [notifUnread, setNotifUnread] = useState(0);
   const loadedOnce = useRef(false);
 
   // Görüntülenme sayacı — her post oturumda 1 kez, göründüğünde raporlanır
@@ -187,6 +194,10 @@ export default function FeedScreen({ navigation }) {
   const load = useCallback(async () => {
     const endpoint = tab === 'discover' ? '/api/posts/discover' : '/api/posts/feed';
     if (!loadedOnce.current) setLoading(true);
+    // Zil noktası: gerçek okunmamış bildirim sayısı (bloklamadan)
+    api.get('/api/notifications/unread-count')
+      .then((r) => setNotifUnread(Number(r?.count) || 0))
+      .catch(() => {});
     try {
       const d = await api.get(endpoint);
       const list = Array.isArray(d?.posts) ? d.posts : (Array.isArray(d) ? d : []);
@@ -236,7 +247,7 @@ export default function FeedScreen({ navigation }) {
           <Text style={styles.brand}>Social<Text style={{ color: colors.primary }}>Fit</Text></Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-          <TouchableOpacity style={styles.bell} onPress={() => navigation.navigate('Notifications')}><Ionicons name="notifications-outline" size={18} color="#3C4A42" /><View style={styles.bellDot} /></TouchableOpacity>
+          <TouchableOpacity style={styles.bell} onPress={() => navigation.navigate('Notifications')}><Ionicons name="notifications-outline" size={18} color="#3C4A42" />{notifUnread > 0 ? <View style={styles.bellDot} /> : null}</TouchableOpacity>
           <TouchableOpacity style={styles.bell} onPress={() => navigation.getParent()?.navigate('More')}><Ionicons name="menu" size={22} color="#3C4A42" /></TouchableOpacity>
         </View>
       </View>
@@ -261,6 +272,7 @@ export default function FeedScreen({ navigation }) {
             onOpenProfile={openProfile}
             onMenu={() => comingSoon('Gönderi seçenekleri')}
             onBookmark={toggleBookmark}
+            onOpenMedia={setViewerUri}
           />
         )}
         ListEmptyComponent={
@@ -278,6 +290,18 @@ export default function FeedScreen({ navigation }) {
         viewabilityConfig={viewConfigRef.current}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       />
+
+      {/* Tam ekran foto görüntüleyici */}
+      <Modal visible={!!viewerUri} transparent animationType="fade" onRequestClose={() => setViewerUri(null)}>
+        <Pressable style={styles.viewerBackdrop} onPress={() => setViewerUri(null)}>
+          {viewerUri ? (
+            <Image source={{ uri: viewerUri }} style={styles.viewerImg} resizeMode="contain" />
+          ) : null}
+          <TouchableOpacity style={styles.viewerClose} onPress={() => setViewerUri(null)} hitSlop={12}>
+            <Ionicons name="close" size={26} color="#fff" />
+          </TouchableOpacity>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -303,6 +327,9 @@ const styles = StyleSheet.create({
   name: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },
   meta: { fontSize: 12, color: colors.faint, marginTop: 3, fontFamily: font.body },
   mediaBox: { marginHorizontal: 14, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.divider },
+  viewerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', alignItems: 'center', justifyContent: 'center' },
+  viewerImg: { width: '100%', height: '86%' },
+  viewerClose: { position: 'absolute', top: 54, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   kcalTag: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(17,35,27,0.78)', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 12 },
   kcalText: { fontFamily: font.displayBold, fontSize: 12, color: colors.white },
   body: { fontSize: 14, color: colors.text, lineHeight: 21, paddingHorizontal: 16, paddingTop: 11 },

@@ -35,6 +35,7 @@ import EditGroupScreen from '../screens/main/EditGroupScreen';
 import CreatePostScreen from '../screens/main/CreatePostScreen';
 import CommentScreen from '../screens/main/CommentScreen';
 import UserProfileScreen from '../screens/main/UserProfileScreen';
+import FollowListScreen from '../screens/main/FollowListScreen';
 import MoreScreen from '../screens/main/MoreScreen';
 import NotificationsScreen from '../screens/main/NotificationsScreen';
 import BlogsScreen from '../screens/main/BlogsScreen';
@@ -206,6 +207,8 @@ function ProfileStack() {
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Profili Düzenle' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
+      <Stack.Screen name="FollowList" component={FollowListScreen} options={({ route }) => ({ title: route.params?.type === 'following' ? 'Takip Edilenler' : 'Takipçiler' })} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
       <Stack.Screen
         name="OnboardingModal"
         component={OnboardingModalScreen}

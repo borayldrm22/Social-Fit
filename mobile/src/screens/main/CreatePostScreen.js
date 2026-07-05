@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Image, Alert, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -22,6 +22,7 @@ export default function CreatePostScreen({ navigation, route }) {
   const { token } = useAuth();
   const { celebrate } = useStarReward();
   const headerHeight = useHeaderHeight();
+  const scrollRef = useRef(null);
   const [type, setType] = useState(route.params?.prefillType || 'meal'); // 'meal' | 'workout' | 'text'
   const [caption, setCaption] = useState(route.params?.prefillCaption || '');
   const [media, setMedia] = useState(null); // { uri, isVideo }
@@ -121,7 +122,7 @@ export default function CreatePostScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={headerHeight}
     >
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Öğün / Spor tag seçimi */}
       <Text style={styles.sectionLabel}>İçerik türü</Text>
       <View style={styles.typeRow}>
@@ -147,7 +148,15 @@ export default function CreatePostScreen({ navigation, route }) {
           activeOpacity={0.8}
         >
           <Text style={styles.typeEmoji}>💭</Text>
-          <Text style={[styles.typeText, type === 'text' && styles.typeTextActive]}>Düşüncelerim</Text>
+          <Text style={[styles.typeText, type === 'text' && styles.typeTextActive]} numberOfLines={1}>Düşüncelerim</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.typeBtn, type === 'general' && styles.typeBtnActive]}
+          onPress={() => setType('general')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.typeEmoji}>📣</Text>
+          <Text style={[styles.typeText, type === 'general' && styles.typeTextActive]} numberOfLines={1}>Genel</Text>
         </TouchableOpacity>
       </View>
 
@@ -188,6 +197,7 @@ export default function CreatePostScreen({ navigation, route }) {
         value={caption}
         onChangeText={setCaption}
         multiline
+        onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250)}
       />
 
       {/* Paylaş Butonu */}
@@ -219,10 +229,10 @@ const styles = StyleSheet.create({
   },
 
   // Öğün / Spor
-  typeRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   typeBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 14,
+    flexBasis: '47%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, paddingHorizontal: 6, borderRadius: 14,
     backgroundColor: '#F3F4F6',
     borderWidth: 2, borderColor: 'transparent',
   },
