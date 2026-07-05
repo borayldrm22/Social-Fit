@@ -242,10 +242,11 @@ export default function FeedScreen({ navigation }) {
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.topbar}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-          <View style={styles.logo}><Ionicons name="leaf" size={19} color={colors.white} /></View>
-          <Text style={styles.brand}>Social<Text style={{ color: colors.primary }}>Fit</Text></Text>
-        </View>
+        <TouchableOpacity style={styles.lbBtn} activeOpacity={0.85} onPress={() => navigation.navigate('Leaderboard')}>
+          <Ionicons name="trophy" size={17} color={colors.amberDark} />
+          <Text style={styles.lbText}>Liderlik</Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.amberDark} />
+        </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <TouchableOpacity style={styles.bell} onPress={() => navigation.navigate('Notifications')}><Ionicons name="notifications-outline" size={18} color="#3C4A42" />{notifUnread > 0 ? <View style={styles.bellDot} /> : null}</TouchableOpacity>
           <TouchableOpacity style={styles.bell} onPress={() => navigation.getParent()?.navigate('More')}><Ionicons name="menu" size={22} color="#3C4A42" /></TouchableOpacity>
@@ -309,8 +310,8 @@ export default function FeedScreen({ navigation }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   topbar: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  logo: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  brand: { fontFamily: font.displayBold, fontSize: 21, color: colors.ink, letterSpacing: -0.5 },
+  lbBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.amberTint, borderWidth: 1, borderColor: '#FBE6BC', borderRadius: 999, paddingLeft: 12, paddingRight: 9, paddingVertical: 8 },
+  lbText: { fontFamily: font.bodyBold, fontSize: 15, color: colors.amberDark, letterSpacing: -0.2 },
   streakPill: { backgroundColor: colors.coralTint, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 13 },
   streakText: { fontFamily: font.displayBold, fontSize: 14, color: colors.coralDark },
   starTop: { backgroundColor: colors.amberTint, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 13 },

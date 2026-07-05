@@ -111,6 +111,7 @@ function FeedStack() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Bildirimler' }} />
       <Stack.Screen name="Comments" component={CommentScreen} options={{ title: 'Yorumlar' }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
+      <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CoachBooking" component={CoachBookingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="BlogDetail2" component={BlogDetailScreen} options={{ headerShown: false }} />
