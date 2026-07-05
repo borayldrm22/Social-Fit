@@ -343,7 +343,8 @@ router.get('/:id', async (req, res, next) => {
     const privacyRow = await prisma.$queryRaw`
       SELECT is_public FROM "Profile" WHERE user_id = ${targetId} LIMIT 1
     `;
-    const isPublic = privacyRow.length > 0 ? privacyRow[0].is_public !== 0 : true;
+    // Boolean(): SQLite 0/1 ve Postgres true/false ikisinde de doğru (önceki `!== 0` Postgres'te false için de true dönüyordu)
+    const isPublic = privacyRow.length > 0 ? Boolean(privacyRow[0].is_public) : true;
 
     res.json({
       id: user.id,
@@ -374,6 +375,30 @@ router.get('/:id/posts', async (req, res, next) => {
       },
     });
     res.json(posts);
+  } catch (e) { next(e); }
+});
+
+// Takipçi listesi (bu kullanıcıyı takip edenler)
+router.get('/:id/followers', async (req, res, next) => {
+  try {
+    const rows = await prisma.friendship.findMany({
+      where: { friendId: req.params.id, status: 'accepted' },
+      include: { user: { select: { id: true, profile: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(rows.map((r) => ({ id: r.user.id, profile: r.user.profile })));
+  } catch (e) { next(e); }
+});
+
+// Takip edilenler listesi
+router.get('/:id/following', async (req, res, next) => {
+  try {
+    const rows = await prisma.friendship.findMany({
+      where: { userId: req.params.id, status: 'accepted' },
+      include: { friend: { select: { id: true, profile: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(rows.map((r) => ({ id: r.friend.id, profile: r.friend.profile })));
   } catch (e) { next(e); }
 });
 
@@ -414,7 +439,8 @@ router.post('/:id/follow', async (req, res, next) => {
 
     // Hedef kullanıcının isPublic durumunu kontrol et
     const privacyRow = await prisma.$queryRaw`SELECT is_public FROM "Profile" WHERE user_id = ${friendId} LIMIT 1`;
-    const isPublic = privacyRow.length > 0 ? privacyRow[0].is_public !== 0 : true;
+    // Boolean(): SQLite 0/1 ve Postgres true/false ikisinde de doğru (önceki `!== 0` Postgres'te false için de true dönüyordu)
+    const isPublic = privacyRow.length > 0 ? Boolean(privacyRow[0].is_public) : true;
     const status = isPublic ? 'accepted' : 'pending';
 
     const fr = await prisma.friendship.create({ data: { userId: req.user.id, friendId, status } });

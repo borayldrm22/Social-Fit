@@ -24,21 +24,26 @@ router.get('/conversations', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       include: { sender: { select: { id: true, profile: true } } },
     });
-    const seen = new Set();
-    const list = [];
+    // Her sohbet için GERÇEKTEN en son mesajı seç (önceden sent listesi hep
+    // öncelikliydi → karşı tarafın daha yeni mesajı varken benim eski mesajım görünüyordu)
+    const byOther = new Map();
     for (const m of [...sent, ...received]) {
       const otherId = m.senderId === req.user.id ? m.receiverId : m.senderId;
-      if (seen.has(otherId)) continue;
-      seen.add(otherId);
       const other = m.senderId === req.user.id ? m.receiver : m.sender;
-      list.push({
-        userId: other.id,
-        profile: other.profile,
-        lastMessage: m.body,
-        lastAt: m.createdAt,
-        unread: m.receiverId === req.user.id && !m.read,
-      });
+      const existing = byOther.get(otherId);
+      if (!existing || new Date(m.createdAt) > new Date(existing.lastAt)) {
+        byOther.set(otherId, {
+          userId: other.id,
+          profile: other.profile,
+          lastMessage: m.body,
+          lastAt: m.createdAt,
+          mine: m.senderId === req.user.id, // son mesaj benim mi (tik göstergesi)
+          read: m.read,
+          unread: m.receiverId === req.user.id && !m.read,
+        });
+      }
     }
+    const list = [...byOther.values()];
     list.sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
 
     const otherIds = list.map((c) => c.userId);
