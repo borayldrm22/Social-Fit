@@ -51,6 +51,7 @@ export default function ProfileScreen({ navigation }) {
     stars: 0, streak: 0, posts: 0, followers: 0, following: 0, rank: null,
   });
   const [week, setWeek] = useState(buildWeek(null));
+  const [badgeList, setBadgeList] = useState([]);
   const [postList, setPostList] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -61,26 +62,37 @@ export default function ProfileScreen({ navigation }) {
     if (!user?.id) { setLoading(false); return; }
     setError('');
     try {
-      const [me, stats, cal, posts] = await Promise.all([
+      const [me, stats, cal, posts, streak] = await Promise.all([
         api.get('/api/users/me').catch(() => null),
         api.get(`/api/users/${user.id}`).catch(() => null),
         api.get('/api/users/me/calendar').catch(() => null),
         api.get(`/api/users/${user.id}/posts`).catch(() => []),
+        api.get('/api/streaks/me').catch(() => null),
       ]);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      const currentStreak = streak?.currentStreak ?? stats?.currentStreak ?? 0;
       setP((s) => ({
         ...s,
         displayName: me?.profile?.displayName ?? s.displayName,
         avatarUrl: me?.profile?.avatarUrl ?? s.avatarUrl,
         goalNote: me?.profile?.goalNote ?? '',
         stars: me?.starPoints ?? stats?.starPoints ?? 0,
-        streak: stats?.currentStreak ?? 0,
+        streak: currentStreak,
         posts: stats?.postCount ?? 0,
         followers: stats?.followerCount ?? 0,
         following: stats?.followingCount ?? 0,
         rank: stats?.leaderboardRank ?? null,
       }));
       setWeek(buildWeek(cal?.days));
+      const catalog = Array.isArray(streak?.allBadges) ? streak.allBadges : [];
+      setBadgeList(catalog.map((b) => ({
+        key: b.key,
+        label: b.name,
+        iconUrl: b.iconUrl,
+        daysRequired: b.daysRequired,
+        earned: !!b.earned,
+        progress: Math.min(currentStreak, b.daysRequired),
+      })));
       const list = Array.isArray(posts) ? posts : (Array.isArray(posts?.posts) ? posts.posts : []);
       setPostList(list);
       loadedOnce.current = true;
@@ -107,14 +119,7 @@ export default function ProfileScreen({ navigation }) {
     navigation.navigate('Settings');
   };
 
-  const badges = [
-    { emoji: '🔥', label: '7 Gün', on: p.streak >= 7 },
-    { emoji: '⚡', label: '14 Gün', on: p.streak >= 14 },
-    { emoji: '💎', label: '30 Gün', on: p.streak >= 30 },
-    { emoji: '📸', label: '10 Post', on: p.posts >= 10 },
-    { emoji: '🤝', label: 'Sosyal', on: p.followers >= 5 },
-  ];
-  const earned = badges.filter((b) => b.on).length;
+  const earned = badgeList.filter((b) => b.earned).length;
 
   return (
     <ScrollView
@@ -211,20 +216,42 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       {/* Rozetler */}
-      <View style={{ marginHorizontal: 16, marginTop: 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
-          <Text style={styles.sectionTitle}>Rozetler</Text>
-          <Text style={styles.sectionLink}>{earned} / {badges.length} kazanıldı</Text>
+      {badgeList.length > 0 ? (
+        <View style={{ marginTop: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11, marginHorizontal: 16 }}>
+            <Text style={styles.sectionTitle}>Rozetler</Text>
+            <Text style={styles.sectionLink}>{earned} / {badgeList.length} kazanıldı</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+          >
+            {badgeList.map((b) => (
+              <View key={b.key} style={[styles.badge, !b.earned && styles.badgeLocked]}>
+                {b.iconUrl ? (
+                  <Image
+                    source={{ uri: resolveUri(b.iconUrl) }}
+                    style={[styles.badgeImg, !b.earned && { opacity: 0.35 }]}
+                  />
+                ) : (
+                  <View style={[styles.badgeImg, { alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 26, opacity: b.earned ? 1 : 0.4 }}>🏅</Text>
+                  </View>
+                )}
+                <Text style={[styles.badgeLbl, { color: b.earned ? colors.ink : colors.faint }]} numberOfLines={1}>
+                  {b.label}
+                </Text>
+                {b.earned ? (
+                  <Text style={styles.badgeEarned}>Kazanıldı</Text>
+                ) : (
+                  <Text style={styles.badgeProgress}>{b.progress}/{b.daysRequired} gün</Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
         </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {badges.map((b, i) => (
-            <View key={i} style={[styles.badge, !b.on && { backgroundColor: colors.divider }]}>
-              <Text style={{ fontSize: 26, opacity: b.on ? 1 : 0.4 }}>{b.emoji}</Text>
-              <Text style={[styles.badgeLbl, { color: b.on ? colors.muted : colors.faint }]}>{b.label}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      ) : null}
 
       {/* Paylaşımlarım */}
       <View style={{ marginHorizontal: 16, marginTop: 22 }}>
@@ -292,8 +319,12 @@ const styles = StyleSheet.create({
   dayLbl: { fontSize: 11, color: colors.muted, fontFamily: font.bodyBold },
   sectionTitle: { fontFamily: font.bodyBold, fontSize: 16, color: colors.ink },
   sectionLink: { fontSize: 12, color: colors.primary, fontFamily: font.bodyBold },
-  badge: { flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 12, alignItems: 'center', ...shadow.soft },
-  badgeLbl: { fontSize: 10, fontFamily: font.bodyBold, marginTop: 4 },
+  badge: { width: 96, backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center', ...shadow.soft },
+  badgeLocked: { backgroundColor: colors.divider },
+  badgeImg: { width: 56, height: 56, borderRadius: 28, resizeMode: 'contain' },
+  badgeLbl: { fontSize: 11, fontFamily: font.bodyBold, marginTop: 6, textAlign: 'center' },
+  badgeEarned: { fontSize: 9, fontFamily: font.bodyBold, color: colors.primary, marginTop: 2 },
+  badgeProgress: { fontSize: 9, fontFamily: font.body, color: colors.faint, marginTop: 2 },
   postsEmpty: { alignItems: 'center', gap: 10, paddingVertical: 30 },
   postsEmptyText: { fontSize: 14, color: colors.muted, fontFamily: font.body },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },

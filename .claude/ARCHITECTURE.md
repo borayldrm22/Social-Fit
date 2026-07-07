@@ -115,6 +115,45 @@ Bir feature ancak `.claude/skills/feature-delivery-checklist/SKILL.md`'deki 16 m
 - 3–7 agent sınırında kal (sende 3 var, doğru aralık).
 - Karmaşık tasarım kararı çıkarsa **Explorer + Critic** (3 alternatif üreten + 1 değerlendiren) ekleyebiliriz, ama şimdilik gerek yok.
 
+## Pazarlama takımı (Marketing) — orkestrasyon playbook
+
+Feature takımına **paralel**, kullanıcı kazanımı odaklı ikinci takım. Dosyalar `.claude/agents/marketing/` (6 agent) + `.claude/skills/marketing/` (14 skill), hepsi `mkt-` prefix'li. Handoff: `.claude/handoffs/_CAMPAIGN_TEMPLATE.md`.
+
+### Altı agent (dev takımına birebir paralel)
+
+| Agent | Rol | R/W | Muadili |
+|---|---|---|---|
+| `mkt-growth-strategist` | Hedef → ölçülebilir brief → kanal dağıtımı → handoff açar. Kopya/kreatif ÜRETMEZ. | read-only | `feature-spec` |
+| `mkt-social-content-creator` | Organik: Reels/TikTok, caption, hashtag, takvim, haftalık kart | write | — |
+| `mkt-paid-ads-specialist` | Meta/Google/Apple Ads: kreatif, hedefleme, bütçe, UTM | write | — |
+| `mkt-influencer-community` | TR influencer/diyetisyen outreach, collab, topluluk büyütme | write (+WebSearch) | — |
+| `mkt-aso-seo` | Store metadata+keyword, blog SEO, landing/waitlist | write (+WebSearch) | — |
+| `mkt-marketing-analyst` | Kampanya sonrası review, PASS/İYİLEŞTİR/DUR | read-only | `qa-reviewer` |
+
+### On dört skill — skill ↔ agent haritası
+
+`mkt-brand-voice` (ortak ses + KVKK sınırı, 5 agent) · `mkt-metrics` (strategist/paid/analyst) · `mkt-copy-patterns` (social/paid) · `mkt-strategy`→strategist · `mkt-organic-social`→social · `mkt-paid-ads`→paid · `mkt-influencer`→influencer · `mkt-aso`+`mkt-content-seo`→aso-seo · `mkt-campaign-checklist`→analyst · `mkt-lifecycle-retention` (social+analyst) · `mkt-referral-viral` (social+influencer+analyst) · `mkt-experiments` (strategist+analyst+paid+aso) · `mkt-content-ops` (social+influencer+aso). Ortak dev skill: `social-fit-domain` (strategist/aso/influencer her zaman yükler).
+
+### Routing (supervisor kararı)
+
+1. **Ürün/kod feature** ("şu ekranı ekle", "bug") → feature takımı (`feature-spec` …).
+2. **Pazarlama/kullanıcı kazanımı** ("kampanya", "waitlist", "launch", "reklam", "influencer") →
+   - Hedef muğlak / çok kanal → `mkt-growth-strategist` başlar, dağıtır.
+   - Kanal net ("bir Reels senaryosu yaz") → doğrudan ilgili uzman.
+3. **Kampanya sonrası** ("ne çalıştı", "metrikleri değerlendir") → `mkt-marketing-analyst`.
+
+### Kampanya lifecycle
+
+`strategist` (brief + funnel teşhisi + kanal tablosu, `_CAMPAIGN_...` handoff açar) → kanal uzmanları asset üretir ve **aynı handoff'a append eder** (üstüne yazmaz) → `analyst` baştaki hedef metriğe göre ölçer → `PASS` (ölçekle) / `İYİLEŞTİR` (tek değişkenli A/B iterasyonu) / `DUR` (bütçe kes/pivot).
+
+### Ücretli reklam hazırlık kapısı
+
+`strategist` ürün fazına bakar: **store sayfası + dönüşüm event + retention hazır değilse** paralı reklamı "sonra" işaretler, organik + influencer'a ağırlık verir. (Boş kovaya para dökme.)
+
+### Örnek uçtan uca
+
+"4 haftada 500 waitlist, CAC < 15 TL" → strategist: funnel=awareness zayıf → organik (haftalık Reels serisi) + influencer (5 mikro TR fit-anne) + ASO/landing (waitlist copy); paid "sonra" → uzmanlar handoff'a asset → hafta 4 analyst: hedef vs sonuç + kazanan kanal + karar.
+
 ## Bu mimariyi nasıl genişletirsin?
 
 - Yeni bir uzmanlık alanı çıkarsa: `.claude/agents/<isim>.md` ekle. Frontmatter şart, body'de rolünü ve hangi skill'leri kullandığını yaz.

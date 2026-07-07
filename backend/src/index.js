@@ -41,6 +41,8 @@ app.use(cors({ origin: corsOrigins }));
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.json());
 app.use('/uploads', express.static(UPLOAD_DIR));
+// Rozet gorselleri — repoya commit'li statik varliklar (generateBadges.js ile uretilir).
+app.use('/badges', express.static(path.join(__dirname, '..', 'assets', 'badges')));
 
 // Auth uçlarına brute-force koruması (IP başına 15 dakikada 30 deneme).
 const authLimiter = rateLimit({
