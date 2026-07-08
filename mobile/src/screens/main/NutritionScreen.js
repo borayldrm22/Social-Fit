@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useApi } from '../../api/client';
 import { colors, font, shadow } from '../../theme/socialFitTheme';
 import { ProgressBar } from '../../components/sf/ui';
+import RoutineRow from '../../components/sf/RoutineRow';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -67,14 +68,24 @@ export default function NutritionScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [routines, setRoutines] = useState([]);
   const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     setError('');
     try {
-      const d = await api.get(`/api/foodlog?date=${todayStr()}`);
+      const [food, routinesRes] = await Promise.allSettled([
+        api.get(`/api/foodlog?date=${todayStr()}`),
+        api.get('/api/routines'),
+      ]);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setData(d && d.meals ? d : EMPTY);
+      if (food.status === 'fulfilled' && food.value && food.value.meals) {
+        setData(food.value);
+      } else {
+        setData(EMPTY);
+        if (food.status === 'rejected') setError('Beslenme verileri su an yuklenemiyor. Lutfen tekrar dene.');
+      }
+      if (routinesRes.status === 'fulfilled' && Array.isArray(routinesRes.value)) setRoutines(routinesRes.value);
       loadedOnce.current = true;
     } catch (e) {
       setData(EMPTY);
@@ -86,6 +97,10 @@ export default function NutritionScreen({ navigation }) {
   useFocusEffect(useCallback(() => { if (!loadedOnce.current) setLoading(true); load(); }, [load]));
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
+
+  const onRoutineChange = useCallback((id, done) => {
+    setRoutines((rs) => rs.map((r) => (r.id === id ? { ...r, doneToday: done } : r)));
+  }, []);
 
   const remove = (id) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -165,6 +180,46 @@ export default function NutritionScreen({ navigation }) {
                   </View>
                 ))}
               </View>
+            </View>
+
+            {/* Günlük Rutinler */}
+            <View style={styles.routineCard}>
+              <View style={styles.routineHead}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.routineTitle}>Günlük Rutinler</Text>
+                  {routines.length > 0 ? (
+                    <Text style={styles.routineSub}>{routines.filter((r) => r.doneToday).length}/{routines.length} tamamlandı</Text>
+                  ) : null}
+                </View>
+                {routines.length > 0 ? (
+                  <TouchableOpacity onPress={() => navigation.navigate('Routines')} hitSlop={8}>
+                    <Text style={styles.routineAll}>Tümü ›</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {routines.length > 0 ? (
+                <>
+                  <ProgressBar
+                    value={routines.length ? routines.filter((r) => r.doneToday).length / routines.length : 0}
+                    height={8}
+                    style={{ marginTop: 10, marginBottom: 2 }}
+                  />
+                  {routines.slice(0, 4).map((r) => (
+                    <RoutineRow key={r.id} routine={r} onChange={onRoutineChange} />
+                  ))}
+                  {routines.length > 4 ? (
+                    <TouchableOpacity onPress={() => navigation.navigate('Routines')} style={styles.routineMore} activeOpacity={0.8}>
+                      <Text style={styles.routineMoreText}>+{routines.length - 4} rutin daha</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              ) : (
+                <TouchableOpacity style={styles.routineEmpty} onPress={() => navigation.navigate('AddRoutine')} activeOpacity={0.85}>
+                  <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                  <Text style={styles.routineEmptyText}>Henüz rutinin yok — ekle</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Günlük öğün defteri */}
@@ -281,4 +336,13 @@ const styles = StyleSheet.create({
   tarifIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center' },
   tarifTitle: { fontFamily: font.bodyBold, fontSize: 15, color: colors.ink },
   tarifSub: { fontSize: 12, color: colors.faint, fontFamily: font.body, marginTop: 2 },
+  routineCard: { marginHorizontal: 16, marginTop: 14, backgroundColor: colors.surface, borderRadius: 20, ...shadow.card, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6 },
+  routineHead: { flexDirection: 'row', alignItems: 'center' },
+  routineTitle: { fontFamily: font.displayBold, fontSize: 16, color: colors.ink },
+  routineSub: { fontSize: 12.5, color: colors.faint, fontFamily: font.bodyBold, marginTop: 2 },
+  routineAll: { fontFamily: font.bodyBold, fontSize: 13, color: colors.primary },
+  routineMore: { paddingVertical: 10, alignItems: 'center' },
+  routineMoreText: { fontFamily: font.bodyBold, fontSize: 13, color: colors.primary },
+  routineEmpty: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 14 },
+  routineEmptyText: { fontFamily: font.bodyBold, fontSize: 14, color: colors.primaryDark },
 });

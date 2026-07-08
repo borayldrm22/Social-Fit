@@ -6,19 +6,19 @@ Bu dosya her oturumda otomatik yüklenir. Tüm agent'lar buradan başlar. Detay 
 
 ## Ürün özeti (1 paragraf)
 
-Social Fit — sağlıklı yaşam odaklı bir sosyal medya uygulaması (TR pazarı öncelik, sonra global). Kullanıcılar öğün/spor paylaşır, **streak ve yıldız puanı** kazanır, **WhatsApp benzeri kanal/grup'lara** katılır, **diyetisyen rezervasyonu** alır, **haftalık özet kartı**nı Instagram'a paylaşır. Stack: React Native + Expo (mobile), Node + Express + Prisma + SQLite (dev) / PostgreSQL (prod hedefi). Hedef: gamification + sosyal baskı ile diyet motivasyonu.
+Social Fit — sağlıklı yaşam odaklı bir sosyal medya uygulaması (TR pazarı öncelik, sonra global). Kullanıcılar öğün/spor paylaşır, **streak ve yıldız puanı** kazanır, **WhatsApp benzeri kanal/grup'lara** katılır, **diyetisyen rezervasyonu** alır, **haftalık özet kartı**nı Instagram'a paylaşır. Stack: React Native + Expo (mobile), Node + Express + Prisma + PostgreSQL (Supabase, dev+prod). Hedef: gamification + sosyal baskı ile diyet motivasyonu.
 
 ## Şu anki durum (Faz 1 — 2/10)
 
-✅ Onboarding akışı | ✅ Onboarding tekrar gösterim fix
-⏳ FoodLog backend + mobil ekranlar | ⏳ Star economy + leaderboard | ⏳ Group challenge | ⏳ Step2→Step3 kalori parseFloat bug | ⏳ SQLite→Postgres | ⏳ Polling→Socket.io
+✅ Onboarding akışı | ✅ Onboarding tekrar gösterim fix | ✅ SQLite→Postgres (Supabase)
+⏳ FoodLog backend + mobil ekranlar | ⏳ Star economy + leaderboard | ⏳ Group challenge | ⏳ Step2→Step3 kalori parseFloat bug | ⏳ Polling→Socket.io
 
 5 fazlık roadmap için: `.cursor/skills/social-fit-domain/SKILL.md` (Cursor) veya `.claude/skills/social-fit-domain/SKILL.md` (Claude Code).
 
 ## Proje yapısı
 
 ```
-backend/                  Express + Prisma + SQLite
+backend/                  Express + Prisma + PostgreSQL (Supabase)
   src/routes/             auth, foodlog, posts, groups, messages, streaks, leaderboard,
                           coaches, bookings, notifications, tools, users
   src/middleware/auth.js  JWT authMiddleware → req.user
@@ -110,13 +110,13 @@ On dört skill (`.claude/skills/marketing/`): `mkt-brand-voice`, `mkt-strategy`,
 
 - API çağrısı pattern'i (cancel guard'lı): `OnboardingSocialStep`'e bak — reference implementation.
 - `useApi()` artık `useMemo`'lu — dependency olarak `[api]` koy, `[token]` koyma.
-- Yeni Prisma model/alan: `npx prisma migrate dev --name <açıklama>` (dev için).
+- Yeni Prisma model/alan: `npx prisma db push` (additive; DB'ye erişimli ortamdan). `migrate dev` KULLANMA — hosted Postgres'te shadow/destructive reset riski.
 - Multer upload alan adı `image` standart — mobile + backend eşleşmeli.
 - Görsel üretim (MCP): ücretsiz/anahtarsız `@pinkpixel/mcpollinations` (Pollinations `flux`). Config `.mcp.json` / `.claude/.mcp.json` / `.cursor/.mcp.json`, çıktı `generated-images/` (hepsi git-ignore'lu). `GEMINI_API_KEY`'li nanobanana kaldırıldı — billing yok.
 
 ## Kararlar (gerekirse hatırlat)
 
-- **DB:** Şu an SQLite dev'de, prod için Postgres'e geçiş Faz 1 listesinde.
+- **DB:** Supabase PostgreSQL (dev+prod). SQLite→Postgres geçişi tamamlandı. Şema değişikliği `db push` ile (bkz. Kod ipuçları).
 - **Realtime:** Şu an polling, Socket.io geçişi Faz 1'de planlı.
 - **Auth:** JWT + email/şifre. Telefon (Firebase OTP) Faz 2'de.
 - **Ödeme:** Iyzico Faz 2'de. Şu an ödeme yok.

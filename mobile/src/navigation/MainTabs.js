@@ -45,6 +45,8 @@ import CoachBookingScreen from '../screens/main/CoachBookingScreen';
 import FoodLogScreen from '../screens/foodlog/FoodLogScreen';
 import AddFoodScreen from '../screens/foodlog/AddFoodScreen';
 import NutritionScreen from '../screens/main/NutritionScreen';
+import RoutinesScreen from '../screens/main/RoutinesScreen';
+import AddRoutineScreen from '../screens/main/AddRoutineScreen';
 import RecipesScreen from '../screens/main/RecipesScreen';
 import GroupDiscoverScreen from '../screens/main/GroupDiscoverScreen';
 import GroupMapScreen from '../screens/main/GroupMapScreen';
@@ -160,6 +162,8 @@ function NutritionStack() {
   return (
     <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen name="NutritionMain" component={NutritionScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AddRoutine" component={AddRoutineScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Tools" component={ToolsScreen} options={{ title: 'Sağlık Hesaplayıcıları' }} />
       <Stack.Screen name="Recipes" component={RecipesScreen} options={{ headerShown: false }} />
       <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ headerShown: false }} />
