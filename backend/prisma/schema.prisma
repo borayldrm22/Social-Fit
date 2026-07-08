@@ -241,6 +241,7 @@ model RoutineLog {
   date      DateTime // gün bazlı
   count     Int      @default(0) // hedefe doğru ilerleme
   done      Boolean  @default(false)
+  awarded   Boolean  @default(false) // puan bu gün için verildi mi — toggle farming'i önler
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([routineId, date])

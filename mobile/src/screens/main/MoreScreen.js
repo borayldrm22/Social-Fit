@@ -27,6 +27,7 @@ const MENU_SECTIONS = [
   {
     title: 'Araçlar',
     items: [
+      { label: 'Rutinlerim', icon: 'checkmark-done-outline', color: GREEN, bg: GREEN_XL, screen: 'Routines', tab: 'Nutrition' },
       { label: 'BKİ & Kalori Hesapla', icon: 'calculator-outline', color: GREEN, bg: GREEN_XL, screen: 'Tools' },
       { label: 'Koç & Diyetisyen Bul', icon: 'medkit-outline', color: ORANGE, bg: '#FDDDD5', screen: 'Coaches' },
     ],

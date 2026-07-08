@@ -79,14 +79,15 @@ router.patch('/:id/complete', async (req, res, next) => {
       where: { routineId_date: { routineId: routine.id, date: today } },
     });
     const nextDone = !existing?.done;
+    // Puanı gün başına yalnızca bir kez ver — aç/kapa/aç toggle'ıyla tekrar kazanmayı önle
+    const shouldAward = nextDone && !existing?.awarded;
     const log = await prisma.routineLog.upsert({
       where: { routineId_date: { routineId: routine.id, date: today } },
-      create: { routineId: routine.id, userId: req.user.id, date: today, done: nextDone, count: nextDone ? routine.target : 0 },
-      update: { done: nextDone, count: nextDone ? routine.target : 0 },
+      create: { routineId: routine.id, userId: req.user.id, date: today, done: nextDone, count: nextDone ? routine.target : 0, awarded: shouldAward },
+      update: { done: nextDone, count: nextDone ? routine.target : 0, awarded: existing?.awarded || shouldAward },
     });
-    // Yalnızca ilk kez tamamlanınca puan ver (aynı gün toggle spam'ini önle)
     let awarded = 0;
-    if (nextDone && !existing?.done) {
+    if (shouldAward) {
       awarded = ROUTINE_POINTS;
       await awardPoints(req.user.id, ROUTINE_POINTS, 'routine_done', log.id);
       await recordStreak(req.user.id); // rutin de günlük aktivite sayılır (streak)
