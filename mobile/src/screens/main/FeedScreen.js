@@ -2,7 +2,7 @@
 // Konum: src/screens/main/FeedScreen.js
 // Backend: GET /posts (varsa). Erişilemezse MOCK ile render olur.
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Share, ActivityIndicator, Modal, Pressable } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Share, ActivityIndicator, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
@@ -12,6 +12,7 @@ import { API_BASE } from '../../config';
 import { colors, font, shadow } from '../../theme/socialFitTheme';
 import { Avatar, StarPill, Placeholder } from '../../components/sf/ui';
 import { comingSoon } from '../../utils/comingSoon';
+import ZoomableImage from '../../components/sf/ZoomableImage';
 
 function timeAgo(iso) {
   if (!iso) return '';
@@ -294,14 +295,14 @@ export default function FeedScreen({ navigation }) {
 
       {/* Tam ekran foto görüntüleyici */}
       <Modal visible={!!viewerUri} transparent animationType="fade" onRequestClose={() => setViewerUri(null)}>
-        <Pressable style={styles.viewerBackdrop} onPress={() => setViewerUri(null)}>
+        <View style={styles.viewerBackdrop}>
           {viewerUri ? (
-            <Image source={{ uri: viewerUri }} style={styles.viewerImg} resizeMode="contain" />
+            <ZoomableImage key={viewerUri} uri={viewerUri} onClose={() => setViewerUri(null)} />
           ) : null}
           <TouchableOpacity style={styles.viewerClose} onPress={() => setViewerUri(null)} hitSlop={12}>
             <Ionicons name="close" size={26} color="#fff" />
           </TouchableOpacity>
-        </Pressable>
+        </View>
       </Modal>
     </View>
   );
@@ -329,7 +330,6 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, color: colors.faint, marginTop: 3, fontFamily: font.body },
   mediaBox: { marginHorizontal: 14, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.divider },
   viewerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', alignItems: 'center', justifyContent: 'center' },
-  viewerImg: { width: '100%', height: '86%' },
   viewerClose: { position: 'absolute', top: 54, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   kcalTag: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(17,35,27,0.78)', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 12 },
   kcalText: { fontFamily: font.displayBold, fontSize: 12, color: colors.white },
