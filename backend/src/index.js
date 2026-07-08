@@ -17,6 +17,7 @@ const postRoutes = require('./routes/posts');
 const groupRoutes = require('./routes/groups');
 const messageRoutes = require('./routes/messages');
 const streakRoutes = require('./routes/streaks');
+const routineRoutes = require('./routes/routines');
 const leaderboardRoutes = require('./routes/leaderboard');
 const toolsRoutes = require('./routes/tools');
 const coachesRoutes = require('./routes/coaches');
@@ -41,6 +42,8 @@ app.use(cors({ origin: corsOrigins }));
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.json());
 app.use('/uploads', express.static(UPLOAD_DIR));
+// Rozet gorselleri — repoya commit'li statik varliklar (generateBadges.js ile uretilir).
+app.use('/badges', express.static(path.join(__dirname, '..', 'assets', 'badges')));
 
 // Auth uçlarına brute-force koruması (IP başına 15 dakikada 30 deneme).
 const authLimiter = rateLimit({
@@ -57,6 +60,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/streaks', streakRoutes);
+app.use('/api/routines', routineRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/coaches', coachesRoutes);

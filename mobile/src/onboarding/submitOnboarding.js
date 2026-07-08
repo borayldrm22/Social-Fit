@@ -31,7 +31,9 @@ export function buildOnboardingPayload() {
     heightCm: s.heightCm,
     dailyCalorieGoal: s.dailyCalories,
     onboardingData,
-    displayName: (s.username || '').trim(),
+    displayName: (s.fullName || '').trim(),
+    username: (s.username || '').trim(),
+    routines: Array.isArray(s.routines) ? s.routines : [],
   };
 }
 
@@ -39,10 +41,14 @@ export function buildOnboardingPayload() {
  * Persists profile + onboarding completion. Caller should refreshUser after.
  */
 export async function persistOnboardingComplete(api) {
-  const { goal, age, weightKg, heightCm, dailyCalorieGoal, onboardingData, displayName } = buildOnboardingPayload();
+  const { goal, age, weightKg, heightCm, dailyCalorieGoal, onboardingData, displayName, username, routines } = buildOnboardingPayload();
 
   if (displayName.length >= 2) {
     await api.patch('/api/users/me', { displayName });
+  }
+  // Username best-effort: çakışırsa (409) onboarding'i durdurma
+  if (username.length >= 3) {
+    await api.patch('/api/users/me', { username }).catch(() => {});
   }
 
   const body = {
@@ -57,6 +63,12 @@ export async function persistOnboardingComplete(api) {
   };
 
   await api.patch('/api/users/me/onboarding', body);
+
+  // Seçilen hedef rutinleri oluştur
+  if (routines.length) {
+    await api.post('/api/routines/bulk', { routines }).catch(() => {});
+  }
+
   await AsyncStorage.setItem(ONBOARDING_DONE_KEY, 'true');
   await AsyncStorage.setItem(FIRST_SHARE_KEY, 'true');
 }

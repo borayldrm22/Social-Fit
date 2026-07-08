@@ -44,11 +44,23 @@ router.get('/me', async (req, res, next) => {
       include: { badge: true },
       orderBy: { earnedAt: 'desc' },
     });
+    const earnedIds = new Set(badges.map((b) => b.badgeId));
+    const catalog = await prisma.badge.findMany({ orderBy: { daysRequired: 'asc' } });
+    const allBadges = catalog.map((b) => ({
+      id: b.id,
+      key: b.key,
+      name: b.name,
+      description: b.description,
+      iconUrl: b.iconUrl,
+      daysRequired: b.daysRequired,
+      earned: earnedIds.has(b.id),
+    }));
     const starPoints = await getStarPoints(req.user.id);
     res.json({
       currentStreak,
       starPoints,
       badges: badges.map((b) => b.badge),
+      allBadges,
     });
   } catch (e) {
     next(e);

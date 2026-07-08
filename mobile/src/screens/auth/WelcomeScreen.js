@@ -35,12 +35,6 @@ export default function WelcomeScreen({ navigation }) {
 
         <Animated.View style={{ alignItems: 'center', opacity: contentAnim, transform: [{ translateY: contentTranslate }] }}>
           <Text style={styles.brand}>Social<Text style={{ color: '#A9E0C2' }}>Fit</Text></Text>
-          <Text style={styles.tag}>Birlikte hareket et, birlikte güçlen.</Text>
-          <View style={styles.pills}>
-            {['🔥 Streak', '🤝 Topluluk', '🥗 Beslenme'].map((p) => (
-              <View key={p} style={styles.pill}><Text style={styles.pillText}>{p}</Text></View>
-            ))}
-          </View>
         </Animated.View>
       </View>
     </LinearGradient>
@@ -52,8 +46,4 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 92, height: 92, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   brand: { fontFamily: font.displayBold, fontSize: 34, color: colors.white, marginTop: 24, letterSpacing: -0.8 },
-  tag: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 25, marginTop: 12, fontFamily: font.body },
-  pills: { flexDirection: 'row', gap: 7, marginTop: 24 },
-  pill: { backgroundColor: 'rgba(255,255,255,0.13)', paddingHorizontal: 13, paddingVertical: 7, borderRadius: 13 },
-  pillText: { fontSize: 12, fontFamily: font.bodyBold, color: colors.white },
 });

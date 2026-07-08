@@ -34,9 +34,23 @@ async function resolveImageUrl(relPath) {
 }
 
 async function main() {
-  await prisma.badge.upsert({ where: { key: 'streak_7' }, create: { key: 'streak_7', name: '7 Gün Seri', description: '7 gün üst üste paylaşım', daysRequired: 7 }, update: {} });
-  await prisma.badge.upsert({ where: { key: 'streak_14' }, create: { key: 'streak_14', name: '14 Gün Seri', description: '14 gün üst üste paylaşım', daysRequired: 14 }, update: {} });
-  await prisma.badge.upsert({ where: { key: 'streak_30' }, create: { key: 'streak_30', name: '30 Gün Seri', description: '30 gün üst üste paylaşım', daysRequired: 30 }, update: {} });
+  const streakBadges = [
+    { key: 'streak_7', name: '7 Gün Seri', description: '7 gün üst üste paylaşım', daysRequired: 7 },
+    { key: 'streak_14', name: '14 Gün Seri', description: '14 gün üst üste paylaşım', daysRequired: 14 },
+    { key: 'streak_30', name: '30 Gün Seri', description: '30 gün üst üste paylaşım', daysRequired: 30 },
+    { key: 'streak_60', name: '60 Gün Seri', description: '60 gün üst üste paylaşım', daysRequired: 60 },
+    { key: 'streak_90', name: '90 Gün Seri', description: '90 gün üst üste paylaşım', daysRequired: 90 },
+    { key: 'streak_180', name: '180 Gün Seri', description: '180 gün üst üste paylaşım', daysRequired: 180 },
+    { key: 'streak_365', name: '365 Gün Seri', description: '365 gün üst üste paylaşım', daysRequired: 365 },
+  ];
+  for (const b of streakBadges) {
+    const iconUrl = `/badges/${b.key}.png`;
+    await prisma.badge.upsert({
+      where: { key: b.key },
+      create: { ...b, iconUrl },
+      update: { name: b.name, description: b.description, daysRequired: b.daysRequired, iconUrl },
+    });
+  }
   console.log('Badges seeded');
 
   const adminHash = await bcrypt.hash('admin123', 10);

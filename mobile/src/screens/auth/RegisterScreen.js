@@ -22,6 +22,7 @@ export default function RegisterScreen({ navigation }) {
   const { register } = useAuth();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');
   const [show, setShow] = useState(false);
@@ -36,7 +37,7 @@ export default function RegisterScreen({ navigation }) {
     setBusy(true);
     // Gerçek ad onboarding 1. adımda alınır; kayıtta e-posta ön adı geçici görünen ad olur.
     const placeholderName = (email.split('@')[0] || 'Kullanıcı').trim();
-    try { await register?.(email, pass, placeholderName); } catch (e) {} finally { setBusy(false); }
+    try { await register?.(email, pass, placeholderName, phone.trim() || undefined); } catch (e) {} finally { setBusy(false); }
   };
 
   return (
@@ -53,6 +54,13 @@ export default function RegisterScreen({ navigation }) {
           <Ionicons name="mail-outline" size={19} color={colors.faint} />
           <TextInput value={email} onChangeText={setEmail} placeholder="ornek@email.com" placeholderTextColor={colors.faint}
             autoCapitalize="none" keyboardType="email-address" style={styles.input} />
+        </View>
+
+        <Text style={styles.label}>Telefon <Text style={styles.optional}>(isteğe bağlı)</Text></Text>
+        <View style={styles.field}>
+          <Ionicons name="call-outline" size={19} color={colors.faint} />
+          <TextInput value={phone} onChangeText={setPhone} placeholder="05XX XXX XX XX" placeholderTextColor={colors.faint}
+            keyboardType="phone-pad" style={styles.input} />
         </View>
 
         <Text style={styles.label}>Şifre</Text>
@@ -101,6 +109,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: font.displayBold, fontSize: 28, color: colors.ink, marginTop: 16, letterSpacing: -0.5 },
   sub: { fontSize: 15, color: '#7A887F', marginTop: 6, fontFamily: font.body, lineHeight: 22 },
   label: { fontSize: 13, color: colors.muted, fontFamily: font.bodyBold, marginTop: 14, marginBottom: 8 },
+  optional: { color: colors.faint, fontFamily: font.body, fontSize: 12 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 4 },
   fieldActive: { borderWidth: 2, borderColor: colors.primary },
   fieldError: { borderWidth: 2, borderColor: colors.coral },

@@ -114,6 +114,39 @@ Paralel: "ui-designer ve backend-ui-bridge'i paralel çalıştır"
 
 Subagent kullanımı ~15× daha fazla token tüketebilir. Trivial işler için doğrudan ana agent kullan.
 
+## Pazarlama takımı (Marketing) — orkestrasyon playbook
+
+Feature takımına **paralel**, kullanıcı kazanımı odaklı ikinci takım. Dosyalar `.cursor/agents/marketing/` (6 agent) + `.cursor/skills/marketing/` (14 skill), hepsi `mkt-` prefix'li. Handoff: `.cursor/handoffs/_CAMPAIGN_TEMPLATE.md`.
+
+### Altı agent (dev takımına birebir paralel)
+
+| Agent | Rol | readonly | Muadili |
+|---|---|---|---|
+| `mkt-growth-strategist` | Hedef → ölçülebilir brief → kanal dağıtımı → handoff açar. Kopya ÜRETMEZ. | true | `feature-spec` |
+| `mkt-social-content-creator` | Organik: Reels/TikTok, caption, hashtag, takvim, haftalık kart | false | — |
+| `mkt-paid-ads-specialist` | Meta/Google/Apple Ads: kreatif, hedefleme, bütçe, UTM | false | — |
+| `mkt-influencer-community` | TR influencer/diyetisyen outreach, collab, topluluk | false | — |
+| `mkt-aso-seo` | Store metadata+keyword, blog SEO, landing/waitlist | false | — |
+| `mkt-marketing-analyst` | Kampanya sonrası review, PASS/İYİLEŞTİR/DUR | true | `qa-reviewer` |
+
+### On dört skill — skill ↔ agent
+
+`mkt-brand-voice` (ortak ses + KVKK, 5 agent) · `mkt-metrics` (strategist/paid/analyst) · `mkt-copy-patterns` (social/paid) · `mkt-strategy`→strategist · `mkt-organic-social`→social · `mkt-paid-ads`→paid · `mkt-influencer`→influencer · `mkt-aso`+`mkt-content-seo`→aso-seo · `mkt-campaign-checklist`→analyst · `mkt-lifecycle-retention` (social+analyst) · `mkt-referral-viral` (social+influencer+analyst) · `mkt-experiments` (strategist+analyst+paid+aso) · `mkt-content-ops` (social+influencer+aso). Ortak: `social-fit-domain`.
+
+### Routing
+
+1. Ürün/kod feature → feature takımı (`feature-spec` …).
+2. Pazarlama/kazanım (kampanya, waitlist, launch, reklam, influencer) → muğlak/çok kanal ise `mkt-growth-strategist` başlar; kanal netse doğrudan uzman.
+3. Kampanya sonrası ("ne çalıştı") → `mkt-marketing-analyst`.
+
+### Lifecycle
+
+`strategist` (brief + funnel teşhisi + kanal tablosu, `_CAMPAIGN_...` handoff açar) → kanal uzmanları asset üretir, **aynı handoff'a append** → `analyst` hedefe göre ölçer → PASS / İYİLEŞTİR / DUR.
+
+### Ücretli reklam kapısı
+
+Store sayfası + dönüşüm event + retention hazır değilse strategist paralı reklamı "sonra" işaretler, organik + influencer'a ağırlık verir.
+
 ## Genişletme
 
 - Yeni uzmanlık: `.cursor/agents/<isim>.md` ekle (YAML frontmatter + prompt)

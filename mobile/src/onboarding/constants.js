@@ -12,11 +12,21 @@ export const GOAL_OPTIONS = [
 ];
 
 export const CHALLENGE_OPTIONS = [
-  { id: 'motivation', label: 'Motivasyon eksikliği' },
-  { id: 'night_eating', label: 'Gece yemekleri' },
-  { id: 'sweet_craving', label: 'Tatlı isteği' },
-  { id: 'time', label: 'Zaman yetersizliği' },
-  { id: 'irregular_food', label: 'Düzensiz beslenme' },
+  { id: 'lack_knowledge', label: 'Bilgi eksikliği' },
+  { id: 'lack_support', label: 'Destek eksikliği' },
+  { id: 'meal_planning', label: 'Öğün planlama' },
+  { id: 'health_issue', label: 'Sağlık / tıbbi sorun' },
+  { id: 'no_time', label: 'Yeterli zaman olmaması' },
+];
+
+// Onboarding step 5 — hazır rutin şablonları (kullanıcı seçer + özel ekler)
+export const ROUTINE_TEMPLATES = [
+  { id: 'water', title: 'Su iç', icon: '💧', target: 8, unit: 'bardak' },
+  { id: 'read', title: 'Kitap oku', icon: '📖', target: 10, unit: 'sayfa' },
+  { id: 'steps', title: 'Yürü', icon: '👟', target: 8000, unit: 'adım' },
+  { id: 'meditate', title: 'Meditasyon', icon: '🧘', target: 10, unit: 'dk' },
+  { id: 'sleep', title: 'Erken uyu', icon: '😴', target: 1, unit: '' },
+  { id: 'stretch', title: 'Esneme', icon: '🤸', target: 1, unit: '' },
 ];
 
 export const TIMELINE_OPTIONS = [
@@ -46,17 +56,18 @@ export const IDENTITY_OPTIONS = [
   { id: 'aging', label: 'Daha geç yaşlanmak istiyorum.' },
 ];
 
-export const ONBOARDING_TOTAL_STEPS = 7;
+export const ONBOARDING_TOTAL_STEPS = 8;
 
-// Yeni sıra: Ad Soyad → Vücut/BMI → Aktivite → Hedef → Zorlanma → Sonuç → Kanal
+// Sıra: Ad Soyad+username → Vücut/BMI → Aktivite → Hedef → Rutinler → Zorlanma → Sonuç → Kanal
 export const ONBOARDING_ROUTE_STEP = {
   OnboardingWelcome: 1,
   OnboardingProfile: 2,
   OnboardingActivity: 3,
   OnboardingGoals: 4,
-  OnboardingChallenge: 5,
-  OnboardingResult: 6,
-  OnboardingSocial: 7,
+  OnboardingRoutines: 5,
+  OnboardingChallenge: 6,
+  OnboardingResult: 7,
+  OnboardingSocial: 8,
 };
 
 export const DEFAULT_FIRST_SHARE_CAPTION =

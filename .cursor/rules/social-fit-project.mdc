@@ -32,6 +32,26 @@ Dokuz skill (`.cursor/skills/`): domain, ui-design-system, mobile-screen-pattern
 
 Handoff: non-trivial feature için `.cursor/handoffs/<slug>.md` aç (`_TEMPLATE.md`'den kopyala).
 
+## Pazarlama takımı (Marketing)
+
+Kullanıcı kazanımı odaklı ikinci takım. Dosyalar `.cursor/agents/marketing/` ve `.cursor/skills/marketing/` altında, hepsi `mkt-` prefix'li. Handoff şablonu: `.cursor/handoffs/_CAMPAIGN_TEMPLATE.md`.
+
+Altı agent:
+- **mkt-growth-strategist** — büyüme hedefini ölçülebilir brief'e çevirir, kanallara dağıtır (feature-spec muadili, readonly)
+- **mkt-social-content-creator** — Reels/TikTok senaryosu, caption, hashtag, içerik takvimi, haftalık kart
+- **mkt-paid-ads-specialist** — Meta/Google/Apple Ads kreatif + hedefleme + bütçe + UTM
+- **mkt-influencer-community** — TR influencer/diyetisyen outreach, collab, topluluk büyütme
+- **mkt-aso-seo** — App Store/Play metadata + keyword, blog SEO, landing/waitlist
+- **mkt-marketing-analyst** — kampanya sonrası review, PASS/İYİLEŞTİR/DUR (qa-reviewer muadili)
+
+On dört skill (`.cursor/skills/marketing/`): mkt-brand-voice, mkt-strategy, mkt-organic-social, mkt-paid-ads, mkt-influencer, mkt-aso, mkt-content-seo, mkt-metrics, mkt-campaign-checklist, mkt-copy-patterns, mkt-lifecycle-retention, mkt-referral-viral, mkt-experiments, mkt-content-ops.
+
+**Routing:** pazarlama/kullanıcı-kazanımı isteği → mkt-growth-strategist başlar, kanal uzmanlarına dağıtır, mkt-marketing-analyst review eder. Kanal netse doğrudan uzmana git. Ürün/kod feature isteği → mevcut feature takımı.
+
+**Kural:** Store sayfası + retention oturmadan paralı reklamı ölçekleme; önce organik + influencer.
+Tüm pazarlama içeriği KVKK-güvenli ("tedavi/teşhis" YOK, "öneri" tamam); influencer işbirliklerinde #işbirliği/#reklam ifşası zorunlu.
+**Çağırma:** `/mkt-growth-strategist ...`, `/mkt-social-content-creator ...`, `/mkt-paid-ads-specialist ...`, `/mkt-influencer-community ...`, `/mkt-aso-seo ...`, `/mkt-marketing-analyst ...`.
+
 ## Domain kuralları
 
 - Kod İngilizce, UI metni Türkçe
@@ -45,6 +65,10 @@ Handoff: non-trivial feature için `.cursor/handoffs/<slug>.md` aç (`_TEMPLATE.
 - `useApi()` dependency: `[api]` koy, `[token]` koyma
 - Prisma: `npx prisma migrate dev --name <açıklama>`
 - Multer upload alan adı: `image`
+
+## Görsel üretim (MCP)
+
+Ücretsiz, anahtarsız: `@pinkpixel/mcpollinations` (Pollinations `flux`). Config `.mcp.json` / `.claude/.mcp.json` / `.cursor/.mcp.json` (üçü paralel, git-ignore'lu). Görseller `generated-images/` altına PNG olarak otomatik kaydedilir (git-ignore'lu). `GEMINI_API_KEY` gerektiren nanobanana kaldırıldı — billing yok.
 
 ## Çalıştırma
 

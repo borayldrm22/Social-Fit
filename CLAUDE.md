@@ -79,6 +79,24 @@ Handoff dosyaları (`.cursor/handoffs/` veya `.claude/handoffs/`):
 
 Detaylı orkestrasyon: `.cursor/ARCHITECTURE.md` (Cursor) veya `.claude/ARCHITECTURE.md` (Claude Code).
 
+## Pazarlama takımı (Marketing)
+
+Kullanıcı kazanımı odaklı ikinci takım. Dosyalar `.claude/agents/marketing/` ve `.claude/skills/marketing/` altında, hepsi `mkt-` prefix'li. Handoff şablonu: `.claude/handoffs/_CAMPAIGN_TEMPLATE.md`.
+
+Altı subagent:
+- **`mkt-growth-strategist`** — büyüme hedefini ölçülebilir kampanya brief'ine çevirir, kanallara dağıtır (feature-spec muadili, Read-only)
+- **`mkt-social-content-creator`** — Reels/TikTok senaryosu, caption, hashtag, içerik takvimi, haftalık paylaşım kartı metni
+- **`mkt-paid-ads-specialist`** — Meta/Google App Campaigns/Apple Search Ads kreatif + hedefleme + bütçe + UTM
+- **`mkt-influencer-community`** — TR influencer/diyetisyen outreach, collab brief, WhatsApp topluluk büyütme
+- **`mkt-aso-seo`** — App Store/Play metadata + keyword, blog SEO, landing/waitlist copy
+- **`mkt-marketing-analyst`** — kampanya sonrası performans review, PASS/İYİLEŞTİR/DUR (qa-reviewer muadili)
+
+On dört skill (`.claude/skills/marketing/`): `mkt-brand-voice`, `mkt-strategy`, `mkt-organic-social`, `mkt-paid-ads`, `mkt-influencer`, `mkt-aso`, `mkt-content-seo`, `mkt-metrics`, `mkt-campaign-checklist`, `mkt-copy-patterns`, `mkt-lifecycle-retention`, `mkt-referral-viral`, `mkt-experiments`, `mkt-content-ops`.
+
+**Routing:** Pazarlama/kullanıcı kazanımı isteği → `mkt-growth-strategist` başlar, kanal uzmanlarına dağıtır, `mkt-marketing-analyst` review eder. Kanal netse doğrudan ilgili uzmana git. Ürün/kod feature isteği → mevcut feature takımı (feature-spec vb.).
+
+**Kural:** Store sayfası + retention oturmadan paralı reklamı ölçekleme; önce organik + influencer. Tüm pazarlama içeriği KVKK-güvenli ("tedavi/teşhis" YOK, "öneri" tamam), influencer'da ifşa şartı zorunlu.
+
 ## Domain-spesifik kurallar
 
 - **Dil:** Kod İngilizce (değişken/fonksiyon), UI metni Türkçe, log/yorum karışık olabilir.
@@ -94,6 +112,7 @@ Detaylı orkestrasyon: `.cursor/ARCHITECTURE.md` (Cursor) veya `.claude/ARCHITEC
 - `useApi()` artık `useMemo`'lu — dependency olarak `[api]` koy, `[token]` koyma.
 - Yeni Prisma model/alan: `npx prisma migrate dev --name <açıklama>` (dev için).
 - Multer upload alan adı `image` standart — mobile + backend eşleşmeli.
+- Görsel üretim (MCP): ücretsiz/anahtarsız `@pinkpixel/mcpollinations` (Pollinations `flux`). Config `.mcp.json` / `.claude/.mcp.json` / `.cursor/.mcp.json`, çıktı `generated-images/` (hepsi git-ignore'lu). `GEMINI_API_KEY`'li nanobanana kaldırıldı — billing yok.
 
 ## Kararlar (gerekirse hatırlat)
 

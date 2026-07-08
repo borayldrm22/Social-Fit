@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -10,10 +10,14 @@ const GREEN = '#2D6A4F';
 const GREEN_XL = '#D8F3DC';
 const ORANGE = '#F4845F';
 
+// TODO: launch'ta gerçek App Store / Play Store linkiyle değiştir
+const INVITE_URL = 'https://socialfit.app';
+
 const MENU_SECTIONS = [
   {
     title: 'Keşfet',
     items: [
+      { label: 'Arkadaşlarını Davet Et', icon: 'person-add-outline', color: ORANGE, bg: '#FDDDD5', action: 'invite' },
       { label: 'Blog & Makaleler', icon: 'newspaper-outline', color: '#3B82F6', bg: '#DBEAFE', screen: 'Blogs' },
       { label: 'Kaydettiklerim', icon: 'bookmark-outline', color: GREEN, bg: GREEN_XL, screen: 'SavedPosts' },
       { label: 'Kanallar & Gruplar', icon: 'people-outline', color: '#8B5CF6', bg: '#EDE9FE', screen: 'Groups', parent: true },
@@ -49,8 +53,16 @@ export default function MoreScreen({ navigation }) {
   const displayName = profile.displayName || user?.email?.split('@')[0] || 'Kullanıcı';
   const uri = avatarUri(profile);
 
+  const inviteFriends = () => {
+    Share.share({
+      message: `Social Fit'te sağlıklı yaşam yolculuğuma katıl! 🌿🔥 Birlikte streak yapıp hedeflerimize ulaşalım.\n\n${INVITE_URL}`,
+    }).catch(() => {});
+  };
+
   const navigate = (item) => {
-    if (item.tab) {
+    if (item.action === 'invite') {
+      inviteFriends();
+    } else if (item.tab) {
       navigation.getParent()?.navigate(item.tab, { screen: item.screen });
     } else if (item.parent) {
       navigation.getParent()?.navigate(item.screen);

@@ -57,7 +57,7 @@ const Stack = createNativeStackNavigator();
 
 function MoreStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen name="MoreMenu" component={MoreScreen} options={{ title: 'Daha Fazla', headerShown: false }} />
       <Stack.Screen
         name="Blogs"
@@ -102,7 +102,7 @@ function FeedStack() {
   );
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen
         name="FeedList"
         component={FeedScreen}
@@ -121,7 +121,7 @@ function FeedStack() {
 
 function CreateStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen
         name="CreatePost"
         component={CreatePostScreen}
@@ -140,7 +140,7 @@ function CreateStack() {
 
 function GroupsStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen
         name="GroupsList"
         component={GroupsScreen}
@@ -158,7 +158,7 @@ function GroupsStack() {
 
 function NutritionStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen name="NutritionMain" component={NutritionScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Tools" component={ToolsScreen} options={{ title: 'Sağlık Hesaplayıcıları' }} />
       <Stack.Screen name="Recipes" component={RecipesScreen} options={{ headerShown: false }} />
@@ -171,7 +171,7 @@ function NutritionStack() {
 
 function MessagesStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen
         name="Conversations"
         component={MessagesScreen}
@@ -200,7 +200,7 @@ function OnboardingModalScreen({ navigation }) {
 
 function ProfileStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerBackTitleVisible: false, headerBackTitle: '' }}>
       <Stack.Screen
         name="ProfileMain"
         component={ProfileScreen}
