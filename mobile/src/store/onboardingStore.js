@@ -3,7 +3,9 @@ import { computeNutritionPlan } from '../utils/calculations';
 
 function initialState() {
   return {
+    fullName: '',
     username: '',
+    routines: [],
     goals: [],
     challenges: [],
     weightGoalKg: null,
@@ -30,7 +32,9 @@ export const useOnboardingStore = create((set, get) => ({
 
   reset: () => set(initialState()),
 
+  setFullName: (fullName) => set({ fullName }),
   setUsername: (username) => set({ username }),
+  setRoutines: (routines) => set({ routines }),
   setGoals: (goals) => set({ goals }),
   setChallenges: (challenges) => set({ challenges }),
   setWeightGoalKg: (weightGoalKg) => set({ weightGoalKg }),

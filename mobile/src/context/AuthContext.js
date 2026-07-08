@@ -66,11 +66,11 @@ export function AuthProvider({ children }) {
     return data;
   }, [setToken]);
 
-  const register = useCallback(async (email, password, displayName, userName) => {
+  const register = useCallback(async (email, password, displayName, phone) => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, displayName, userName }),
+      body: JSON.stringify({ email, password, displayName, phone }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Kayıt başarısız');
