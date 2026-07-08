@@ -30,6 +30,8 @@ model User {
   friendshipsRecv  Friendship[] @relation("FriendshipRecv")
   groupMembers GroupMember[]
   streaks     Streak[]
+  routines    Routine[]
+  routineLogs RoutineLog[]
   userBadges  UserBadge[]
   bookings    Booking[]
   subscription Subscription?
@@ -45,6 +47,8 @@ model Profile {
   userId               String    @unique @map("user_id")
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   displayName          String    @map("display_name")
+  username             String?   @unique
+  phone                String?
   avatarUrl            String?   @map("avatar_url")
   weightKg             Float?    @map("weight_kg")
   heightCm             Float?    @map("height_cm")
@@ -207,6 +211,40 @@ model Streak {
 
   @@unique([userId, date])
   @@map("streaks")
+}
+
+// Kişisel gelişim rutinleri (günde 5 bardak su, 10 sayfa kitap vb.)
+model Routine {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  icon      String?  // emoji
+  frequency String   @default("daily") // daily | weekly
+  target    Int      @default(1)       // hedef adet (ör. 5 bardak)
+  unit      String?                    // "bardak", "sayfa", "adım"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  logs      RoutineLog[]
+
+  @@map("routines")
+}
+
+// Rutin tamamlama kaydı — gün başına 1 (streak/yıldız buna bağlanır)
+model RoutineLog {
+  id        String   @id @default(uuid())
+  routineId String   @map("routine_id")
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime // gün bazlı
+  count     Int      @default(0) // hedefe doğru ilerleme
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([routineId, date])
+  @@map("routine_logs")
 }
 
 model Badge {

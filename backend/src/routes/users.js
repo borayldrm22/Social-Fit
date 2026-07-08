@@ -167,6 +167,17 @@ router.patch(
       for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
       // isPublic toggle
       if (req.body.isPublic !== undefined) data.isPublic = req.body.isPublic === true || req.body.isPublic === 'true';
+      if (req.body.phone !== undefined) data.phone = String(req.body.phone).trim() || null;
+      // Username — benzersiz handle
+      if (req.body.username !== undefined && String(req.body.username).trim()) {
+        const uname = String(req.body.username).trim().toLowerCase().replace(/^@/, '');
+        if (!/^[a-z0-9_.]{3,20}$/.test(uname)) {
+          return res.status(400).json({ error: 'Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ veya .)' });
+        }
+        const taken = await prisma.profile.findFirst({ where: { username: uname, NOT: { userId: req.user.id } } });
+        if (taken) return res.status(409).json({ error: 'Bu kullanıcı adı alınmış' });
+        data.username = uname;
+      }
       if (req.file) data.avatarUrl = await uploadFile(req.file.buffer, { prefix: 'avatar', originalname: req.file.originalname, contentType: req.file.mimetype });
 
       const healthKeys = ['weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote'];
@@ -292,6 +303,16 @@ router.get('/search', async (req, res, next) => {
   } catch (e) {
     next(e);
   }
+});
+
+// GET /api/users/username-available?username=x — onboarding'de canlı kontrol (/:id'den ÖNCE)
+router.get('/username-available', async (req, res, next) => {
+  try {
+    const uname = String(req.query.username || '').trim().toLowerCase().replace(/^@/, '');
+    if (!/^[a-z0-9_.]{3,20}$/.test(uname)) return res.json({ available: false, reason: 'format' });
+    const taken = await prisma.profile.findFirst({ where: { username: uname, NOT: { userId: req.user.id } } });
+    res.json({ available: !taken });
+  } catch (e) { next(e); }
 });
 
 // GET public profile of any user

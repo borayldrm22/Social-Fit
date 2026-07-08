@@ -23,7 +23,7 @@ router.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-      const { email, password, displayName } = req.body;
+      const { email, password, displayName, phone } = req.body;
       const existing = await prisma.user.findUnique({ where: { email } });
       if (existing) return res.status(400).json({ error: 'Bu e-posta zaten kayıtlı' });
       const passwordHash = await bcrypt.hash(password, 10);
@@ -33,7 +33,7 @@ router.post(
           passwordHash,
           emailVerified: false,
           profile: {
-            create: { displayName },
+            create: { displayName, phone: phone?.trim() || null },
           },
         },
         include: { profile: true },
