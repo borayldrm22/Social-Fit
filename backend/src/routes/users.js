@@ -3,6 +3,7 @@ const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 const { getStarPointsForUserIds, getCurrentStreakForUserIds } = require('../lib/streakStats');
 const { awardPoints, getStarPointsInPeriod } = require('../services/starService');
 const { uploadFile } = require('../services/storageService');
@@ -37,6 +38,39 @@ router.get('/me', async (req, res, next) => {
     next(e);
   }
 });
+
+// PATCH /api/users/me/password — mevcut şifreyi doğrula, yenisini ayarla
+router.patch(
+  '/me/password',
+  [body('currentPassword').notEmpty(), body('newPassword').isLength({ min: 6 })],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+      if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+      const ok = await bcrypt.compare(req.body.currentPassword, user.passwordHash);
+      if (!ok) return res.status(400).json({ error: 'Mevcut şifre yanlış' });
+      const passwordHash = await bcrypt.hash(req.body.newPassword, 10);
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+      res.json({ message: 'Şifre güncellendi' });
+    } catch (e) { next(e); }
+  }
+);
+
+// POST /api/users/me/feedback — uygulama içi değerlendirme/geri bildirim (şimdilik log; DB/e-posta persist follow-up)
+router.post(
+  '/me/feedback',
+  [body('rating').optional().isInt({ min: 1, max: 5 }), body('message').trim().notEmpty()],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      console.log('[feedback]', { userId: req.user.id, rating: req.body.rating, message: String(req.body.message).slice(0, 800) });
+      res.status(201).json({ ok: true });
+    } catch (e) { next(e); }
+  }
+);
 
 // Monthly post calendar — returns posts for a given month grouped by day
 router.get('/me/calendar', async (req, res, next) => {
