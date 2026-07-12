@@ -53,6 +53,10 @@ import GroupMapScreen from '../screens/main/GroupMapScreen';
 import RecipeDetailScreen from '../screens/main/RecipeDetailScreen';
 import BlogScreen from '../screens/main/BlogScreen';
 import SavedPostsScreen from '../screens/main/SavedPostsScreen';
+import InfoScreen from '../screens/main/InfoScreen';
+import PersonalInfoScreen from '../screens/main/PersonalInfoScreen';
+import ChangePasswordScreen from '../screens/main/ChangePasswordScreen';
+import RateUsScreen from '../screens/main/RateUsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -79,6 +83,10 @@ function MoreStack() {
       <Stack.Screen name="Tools" component={ToolsScreen} options={{ title: 'Araçlar' }} />
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
+      <Stack.Screen name="Info" component={InfoScreen} options={{ title: 'Bilgi' }} />
+      <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} options={{ title: 'Kişisel Bilgiler' }} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: 'Şifre Değiştir' }} />
+      <Stack.Screen name="RateUs" component={RateUsScreen} options={{ title: 'Bizi Değerlendir' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Bildirimler' }} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ title: 'Kaydettiklerim' }} />
       <Stack.Screen name="Comments" component={CommentScreen} options={{ title: 'Yorumlar' }} />
@@ -183,6 +191,7 @@ function MessagesStack() {
       />
       <Stack.Screen name="SearchUsers" component={SearchUsersScreen} options={{ title: 'Kullanıcı ara' }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
     </Stack.Navigator>
   );
 }
@@ -212,6 +221,10 @@ function ProfileStack() {
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Profili Düzenle' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
+      <Stack.Screen name="Info" component={InfoScreen} options={{ title: 'Bilgi' }} />
+      <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} options={{ title: 'Kişisel Bilgiler' }} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: 'Şifre Değiştir' }} />
+      <Stack.Screen name="RateUs" component={RateUsScreen} options={{ title: 'Bizi Değerlendir' }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} options={({ route }) => ({ title: route.params?.type === 'following' ? 'Takip Edilenler' : 'Takipçiler' })} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
       <Stack.Screen

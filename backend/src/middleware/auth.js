@@ -16,6 +16,11 @@ async function authMiddleware(req, res, next) {
     });
     if (!user) return res.status(401).json({ error: 'Kullanıcı bulunamadı' });
     req.user = user;
+    // Presence: son görülme — dakikada en fazla bir kez yaz, isteği bloklama (fire-and-forget)
+    const last = user.lastSeenAt ? new Date(user.lastSeenAt).getTime() : 0;
+    if (Date.now() - last > 60000) {
+      prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }).catch(() => {});
+    }
     next();
   } catch (e) {
     return res.status(401).json({ error: 'Geçersiz token' });
