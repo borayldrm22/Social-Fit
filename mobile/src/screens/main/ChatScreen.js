@@ -38,6 +38,21 @@ function clockOf(iso) {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function relTime(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} dk önce`;
+  if (s < 86400) return `${Math.floor(s / 3600)} saat önce`;
+  return `${Math.floor(s / 86400)} gün önce`;
+}
+
+// lastSeenAt -> { online, label }. 2 dk içinde aktifse çevrimiçi.
+function computePresence(iso) {
+  if (!iso) return { online: false, label: 'çevrimdışı' };
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 120000) return { online: true, label: 'çevrimiçi' };
+  return { online: false, label: `son görülme ${relTime(diff)}` };
+}
+
 function HeaderAvatar({ profile }) {
   const uri = avatarUri(profile);
   if (uri) return <Image source={{ uri }} style={styles.hAvatar} />;
@@ -58,6 +73,7 @@ export default function ChatScreen({ route, navigation }) {
 
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
+  const [presence, setPresence] = useState({ online: false, label: '' });
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +83,18 @@ export default function ChatScreen({ route, navigation }) {
   }, [api, userId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadPresence = useCallback(async () => {
+    try {
+      const u = await api.get(`/api/users/${userId}/presence`);
+      setPresence(computePresence(u?.lastSeenAt));
+    } catch (e) {}
+  }, [api, userId]);
+  useEffect(() => {
+    loadPresence();
+    const id = setInterval(loadPresence, 30000);
+    return () => clearInterval(id);
+  }, [loadPresence]);
 
   const send = useCallback(async () => {
     const body = draft.trim();
@@ -124,16 +152,20 @@ export default function ChatScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <View>
-          <HeaderAvatar profile={profile} />
-          <View style={styles.onlineDot} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Text style={styles.hName}>{profile?.displayName}</Text>
+        <TouchableOpacity
+          style={styles.headUser}
+          activeOpacity={0.7}
+          onPress={() => userId && navigation.navigate('UserProfile', { userId })}
+        >
+          <View>
+            <HeaderAvatar profile={profile} />
+            {presence.online ? <View style={styles.onlineDot} /> : null}
           </View>
-          <Text style={styles.hStatus}>çevrimiçi</Text>
-        </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.hName}>{profile?.displayName}</Text>
+            <Text style={[styles.hStatus, !presence.online && styles.hStatusOffline]} numberOfLines={1}>{presence.label}</Text>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity hitSlop={10} onPress={() => comingSoon('Sesli arama')}>
           <Ionicons name="call-outline" size={22} color={colors.primary} />
         </TouchableOpacity>
@@ -186,12 +218,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 11,
   },
   hAvatar: { width: 42, height: 42, borderRadius: 14 },
+  headUser: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11 },
   onlineDot: {
     position: 'absolute', bottom: -1, right: -1, width: 13, height: 13, borderRadius: 7,
     backgroundColor: colors.online, borderWidth: 2, borderColor: colors.surface,
   },
   hName: { fontFamily: font.bodyBold, fontSize: 16, color: colors.ink },
   hStatus: { fontSize: 12, color: colors.online, fontFamily: font.bodyBold, marginTop: 1 },
+  hStatusOffline: { color: colors.faint },
 
   listPad: { padding: 16, paddingBottom: 8, gap: 11 },
   dayWrap: { alignItems: 'center', marginBottom: 11 },

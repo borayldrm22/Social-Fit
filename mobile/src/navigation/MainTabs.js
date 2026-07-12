@@ -191,6 +191,7 @@ function MessagesStack() {
       />
       <Stack.Screen name="SearchUsers" component={SearchUsersScreen} options={{ title: 'Kullanıcı ara' }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
     </Stack.Navigator>
   );
 }

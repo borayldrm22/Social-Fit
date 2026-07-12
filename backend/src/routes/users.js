@@ -357,6 +357,7 @@ router.get('/:id', async (req, res, next) => {
       where: { id: targetId },
       select: {
         id: true,
+        lastSeenAt: true,
         profile: true,
         _count: { select: { posts: true } },
       },
@@ -403,6 +404,7 @@ router.get('/:id', async (req, res, next) => {
 
     res.json({
       id: user.id,
+      lastSeenAt: user.lastSeenAt,
       profile: user.profile,
       postCount: user._count.posts,
       followerCount,
@@ -414,6 +416,14 @@ router.get('/:id', async (req, res, next) => {
       followStatus,
       isPublic,
     });
+  } catch (e) { next(e); }
+});
+
+// GET /api/users/:id/presence — hafif son görülme (ChatScreen poll'u için ucuz sorgu)
+router.get('/:id/presence', async (req, res, next) => {
+  try {
+    const u = await prisma.user.findUnique({ where: { id: req.params.id }, select: { lastSeenAt: true } });
+    res.json({ lastSeenAt: u?.lastSeenAt ?? null });
   } catch (e) { next(e); }
 });
 
