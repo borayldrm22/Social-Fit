@@ -344,18 +344,18 @@ The app is accompanied by a marketing/dietitian website. Key pages:
 
 ### Gap vs Must-Have (launch blockers)
 
-- Phone number registration/login (schema and flows).
-- Star points: persist and display next to usernames everywhere (schema/API + all relevant screens).
+- Phone-number **login** (OTP) — numara onboarding'de toplanıyor; kayıt/giriş hâlâ yalnızca email+şifre.
 - “Talk to my dietitian” floating button on main feed (quick access to coach booking).
 - Payment integration: Iyzico for subscription and coach booking (plus first-month-free trial logic for premium).
-- Push notifications (e.g. FCM) and user-controlled preferences in Settings.
-- KVKK: explicit consent before storing health data (e.g. profile goals, calorie targets, nutrition log).
+- Push notifications (e.g. FCM) — bildirim tercihleri Settings'te var (lokal), gerçek push altyapısı yok.
+
+*(Tamamlananlar: star points her yerde görünür ✅ · KVKK açık rıza akışı sağlık verisi kaydından önce zorunlu ✅)*
 
 ### Gap vs Should-Have (soon after launch)
 
-- Real-time chat (WebSocket or Supabase/Firebase Realtime).
+- Real-time chat (WebSocket or Supabase/Firebase Realtime) — şu an polling.
 - Group challenges (admin-defined daily/weekly).
-- Blog/article feed (backend + CMS or static; SEO linkage).
+- Blog/article feed — mobil ekranlar mevcut ama **mock içerik**; backend/CMS ve SEO bağlantısı yok.
 - Health app integration (Apple HealthKit / Google Fit) as optional.
 
 ### Roadmap (48 görev / 5 faz)
@@ -388,12 +388,13 @@ Detaylı adım adım soru seti: `.claude/skills/social-fit-domain/SKILL.md`.
 
 ### Claude Code Çoklu Ajan Sistemi
 
-Proje `.claude/` altında 3 subagent + 6 skill ile çalışacak şekilde yapılandırıldı:
+Proje `.claude/` altında **4 subagent + 9 skill** (feature takımı) ve **6 agent + 14 skill**'lik `mkt-` prefix'li pazarlama takımı ile yapılandırıldı:
 - `feature-spec` — TR feature isteğini spec'e çevirir
 - `ui-designer` — mobile ekran tasarımı/redesign
 - `backend-ui-bridge` — API kontratını mobile ↔ backend tutarlı tutar
+- `qa-reviewer` — feature/refactor sonrası bağımsız review (PASS/NEEDS-FIX/BLOCKED)
 
-Mimari detay: `.claude/ARCHITECTURE.md`. Otomatik yüklenen proje memory: `CLAUDE.md`.
+Mimari detay: `.claude/ARCHITECTURE.md`. Otomatik yüklenen proje memory: `CLAUDE.md`. Güncel bug/iyileştirme backlog'u: `docs/ANALIZ-2026-07.md`.
 
 ---
 
@@ -405,7 +406,7 @@ Mimari detay: `.claude/ARCHITECTURE.md`. Otomatik yüklenen proje memory: `CLAUD
 
 ```bash
 cd backend
-cp .env.example .env   # Set DATABASE_URL and JWT_SECRET
+cp .env.example .env   # Supabase DATABASE_URL + DIRECT_URL (sonu ?sslmode=require) ve JWT_SECRET
 npm install
 mkdir -p uploads
 npx prisma db push
@@ -413,17 +414,20 @@ node prisma/seed.js
 npm run dev
 ```
 
-API: `http://localhost:4000`
+API: `http://localhost:4000` · Prod: `https://social-fit-api-m92f.onrender.com`
+
+> ⚠️ **Şema değişikliği sırası:** Render bu repo'dan otomatik deploy alır. Yeni model/alan içeren commit'i push'lamadan **önce** `npx prisma db push` ile kolonu DB'ye uygula — aksi hâlde canlı kod var olmayan kolonu sorgular ve tüm istekler 500 döner (2026-07-13 register kesintisinin nedeni). `migrate dev` KULLANMA.
 
 ### Mobile
 
 ```bash
 cd mobile
 npm install
-# Update API_BASE in src/config.js to your backend URL (emulator: localhost, device: computer IP)
+# src/config.js: varsayılan canlı Render API'sidir; lokal backend için USE_LOCAL_BACKEND=true yap
+# (fiziksel cihazda localhost yerine bilgisayarının IP'sini kullan)
 npx expo start
 ```
 
 ---
 
-*Last updated: Based on project brief documents — Social Fit v0.1 planning phase.*
+*Last updated: 2026-07-13 — Faz 1: 8/10, çekirdek döngü canlı (8 adımlı onboarding, FoodLog, rutinler, star economy, leaderboard; Supabase Postgres + Render). Kalan: grup challenge, Socket.io. Backlog: `docs/ANALIZ-2026-07.md`.*
