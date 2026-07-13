@@ -304,11 +304,10 @@ export default function UserProfileScreen({ route, navigation }) {
               style={styles.messageBtn}
               onPress={() => navigation.navigate('Messages', {
                 screen: 'Chat',
+                // ChatScreen { userId, profile } bekler — düz alanlar başlıkta boş ad/avatar bırakıyordu
                 params: {
                   userId,
-                  displayName,
-                  avatarUrl: profile.profile?.avatarUrl,
-                  starPoints: profile.starPoints,
+                  profile: { displayName, avatarUrl: profile.profile?.avatarUrl },
                 },
               })}
               activeOpacity={0.85}

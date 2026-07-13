@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { colors, font, shadow } from '../../theme/socialFitTheme';
+import { parseDecimal } from '../../utils/parseDecimal';
 
 const ACT = {
   sedentary:  { label: 'Hareketsiz',  mult: 1.2,   water: 0,    protein: 0.8 },
@@ -191,14 +192,14 @@ export default function ToolsScreen() {
   const [applying, setApplying] = useState(false);
 
   const computeHealth = () => {
-    const w = parseFloat(weight), h = parseFloat(height);
-    const wa = parseFloat(waist), hp = parseFloat(hip), nk = parseFloat(neck);
+    const w = parseDecimal(weight), h = parseDecimal(height);
+    const wa = parseDecimal(waist), hp = parseDecimal(hip), nk = parseDecimal(neck);
     const res = { bmi: calcBMI(w, h), whr: calcWHR(wa, hp, gender), bf: calcBF(gender, h, wa, nk, hp) };
     if (!res.bmi && !res.whr && !res.bf) { Alert.alert('Eksik bilgi', 'En az boy ve kilo gir; WHR/Yağ oranı için bel, kalça ve boyun ölçüleri gerekir.'); return; }
     setHealthRes(res);
   };
   const computeEnergy = () => {
-    const w = parseFloat(weight), h = parseFloat(height), a = parseInt(age, 10);
+    const w = parseDecimal(weight), h = parseDecimal(height), a = parseInt(age, 10);
     const res = calcEnergy({ gender, w, h, age: a, activity, goal, diet, climate, special });
     if (!res) { Alert.alert('Eksik bilgi', 'Kalori için kilo, boy ve yaş gerekli.'); return; }
     setEnergyRes(res);
