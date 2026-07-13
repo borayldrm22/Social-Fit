@@ -116,7 +116,7 @@ const p = await prisma.post.findUnique({ where: { id }, include: { author: true,
 const created = await prisma.foodLog.create({ data: { ...req.body, userId: req.user.id } });
 ```
 
-Yeni model/alan eklediysen `npx prisma migrate dev --name <açıklama>` çalıştır — sadece dev için.
+Yeni model/alan eklediysen `npx prisma db push` çalıştır (DB'ye erişimli ortamdan, `DIRECT_URL`'de `sslmode=require`). **`migrate dev` KULLANMA** — hosted Supabase Postgres'te destructive reset riski.
 
 ## Yan etki servisleri
 

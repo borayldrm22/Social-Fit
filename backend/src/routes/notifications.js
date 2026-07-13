@@ -1,9 +1,8 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const prisma = require('../lib/prisma');
 
-const prisma = new PrismaClient();
 const router = express.Router();
 router.use(authMiddleware);
 

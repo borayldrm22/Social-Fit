@@ -1,14 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds } = require('../lib/streakStats');
+const { publicProfileSelect } = require('../lib/publicProfile');
 const { awardPoints } = require('../services/starService');
 const { recordStreak } = require('./streaks');
 const { uploadFile } = require('../services/storageService');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const router = express.Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB for videos
@@ -92,7 +92,7 @@ router.get('/feed', async (req, res, next) => {
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
-        user: { select: { id: true, profile: true } },
+        user: { select: { id: true, profile: { select: publicProfileSelect } } },
         _count: { select: { likes: true, comments: true } },
       },
     });
@@ -143,7 +143,7 @@ router.get('/discover', async (req, res, next) => {
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
-        user: { select: { id: true, profile: true } },
+        user: { select: { id: true, profile: { select: publicProfileSelect } } },
         _count: { select: { likes: true, comments: true } },
       },
     });
@@ -169,7 +169,7 @@ router.get('/saved', async (req, res, next) => {
         include: {
           post: {
             include: {
-              user: { select: { id: true, profile: true } },
+              user: { select: { id: true, profile: { select: publicProfileSelect } } },
               _count: { select: { likes: true, comments: true } },
             },
           },
@@ -220,7 +220,7 @@ router.post(
           metadata: metadataStr,
         },
         include: {
-          user: { select: { id: true, profile: true } },
+          user: { select: { id: true, profile: { select: publicProfileSelect } } },
         },
       });
       // Streak + günlük yıldız puanı (günde max 1, recordStreak içinde) — non-fatal
@@ -251,7 +251,8 @@ router.post('/:id/like', async (req, res, next) => {
       where: { id: req.params.id },
       select: { userId: true },
     });
-    if (post) {
+    // Kendi postunu beğenmek puan/bildirim getirmez (self-farm önlemi)
+    if (post && post.userId !== req.user.id) {
       await awardPoints(post.userId, 1, 'like_received', req.params.id);
       const { createNotification } = require('./notifications');
       await createNotification(post.userId, req.user.id, 'like', req.params.id);
@@ -273,6 +274,14 @@ router.delete('/:id/like', async (req, res, next) => {
     await prisma.like.delete({
       where: { userId_postId: { userId: req.user.id, postId: req.params.id } },
     });
+    // Beğeni geri alınınca +1'i de geri al — aç/kapa/aç ile puan farming'ini kapatır
+    const post = await prisma.post.findUnique({
+      where: { id: req.params.id },
+      select: { userId: true },
+    });
+    if (post && post.userId !== req.user.id) {
+      await awardPoints(post.userId, -1, 'like_received', req.params.id);
+    }
     res.json({ liked: false });
   } catch (e) {
     if (e.code === 'P2025') return res.json({ liked: false });
@@ -347,7 +356,7 @@ router.get('/:id/comments', async (req, res, next) => {
       prisma.comment.findMany({
         where: { postId: req.params.id },
         orderBy: { createdAt: 'asc' },
-        include: { user: { select: { id: true, profile: true } } },
+        include: { user: { select: { id: true, profile: { select: publicProfileSelect } } } },
       }),
       prisma.post.findUnique({ where: { id: req.params.id }, select: { userId: true } }),
     ]);
@@ -374,11 +383,17 @@ router.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      // Puan kararı için: postun sahibi + kullanıcının bu posta önceki yorum sayısı
+      const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { userId: true } });
+      const priorComments = await prisma.comment.count({ where: { postId: req.params.id, userId: req.user.id } });
       const comment = await prisma.comment.create({
         data: { userId: req.user.id, postId: req.params.id, body: req.body.body },
-        include: { user: { select: { id: true, profile: true } } },
+        include: { user: { select: { id: true, profile: { select: publicProfileSelect } } } },
       });
-      await awardPoints(req.user.id, 2, 'comment_created', comment.id);
+      // +2 yalnızca BAŞKASININ postuna İLK yorumda — çoklu-yorum farming önlemi
+      if (post && post.userId !== req.user.id && priorComments === 0) {
+        await awardPoints(req.user.id, 2, 'comment_created', comment.id);
+      }
       res.status(201).json({ ...comment, canEdit: true, canDelete: true });
     } catch (e) {
       next(e);
@@ -400,7 +415,7 @@ router.patch(
       const updated = await prisma.comment.update({
         where: { id: comment.id },
         data: { body: req.body.body },
-        include: { user: { select: { id: true, profile: true } } },
+        include: { user: { select: { id: true, profile: { select: publicProfileSelect } } } },
       });
       res.json({ ...updated, canEdit: true, canDelete: true });
     } catch (e) {

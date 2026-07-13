@@ -1,14 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds } = require('../lib/streakStats');
+const { publicProfileSelect } = require('../lib/publicProfile');
 const { awardPoints } = require('../services/starService');
 const { createNotification } = require('./notifications');
 const { uploadFile } = require('../services/storageService');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const router = express.Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -374,7 +374,7 @@ router.get('/:id/posts', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
-        user: { select: { id: true, profile: true } },
+        user: { select: { id: true, profile: { select: publicProfileSelect } } },
         _count: { select: { likes: true, comments: true } },
       },
     });

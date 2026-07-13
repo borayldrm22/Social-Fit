@@ -9,12 +9,12 @@ Detaylı orkestrasyon: `.cursor/ARCHITECTURE.md`. Claude Code uyumluluğu için 
 
 ## Ürün özeti
 
-Social Fit — sağlıklı yaşam odaklı sosyal medya (TR pazarı öncelik). Kullanıcılar öğün/spor paylaşır, **streak ve yıldız puanı** kazanır, **kanal/grup'lara** katılır, **diyetisyen rezervasyonu** alır. Stack: React Native + Expo (mobile), Node + Express + Prisma + SQLite (dev) / PostgreSQL (prod).
+Social Fit — sağlıklı yaşam odaklı sosyal medya (TR pazarı öncelik). Kullanıcılar öğün/spor paylaşır, **streak ve yıldız puanı** kazanır, **kanal/grup'lara** katılır, **diyetisyen rezervasyonu** alır. Stack: React Native + Expo (mobile), Node + Express + Prisma + PostgreSQL (Supabase, dev+prod).
 
-## Şu anki durum (Faz 1 — 2/10)
+## Şu anki durum (Faz 1 — çekirdek döngü tamam)
 
-✅ Onboarding | ✅ Onboarding tekrar gösterim fix
-⏳ FoodLog | ⏳ Star economy + leaderboard | ⏳ Group challenge | ⏳ Step2→Step3 kalori bug | ⏳ SQLite→Postgres | ⏳ Polling→Socket.io
+✅ Onboarding (8 adım: kullanıcı adı/telefon + rutin seçimi dahil) | ✅ SQLite→Postgres (Supabase) | ✅ FoodLog + Beslenme ekranları | ✅ Star economy + leaderboard | ✅ Rutin takibi (Faz 3 UI) | ✅ Ayarlar redesign | ✅ Kalori TR-virgül parse fix
+⏳ Group challenge | ⏳ Polling→Socket.io | ⏳ Abonelik/paywall | ⏳ Dark mode & i18n (ayrı projeler)
 
 Roadmap: `.cursor/skills/social-fit-domain/SKILL.md`
 
@@ -63,7 +63,7 @@ Tüm pazarlama içeriği KVKK-güvenli ("tedavi/teşhis" YOK, "öneri" tamam); i
 
 - API pattern (cancel guard): `OnboardingSocialStep`
 - `useApi()` dependency: `[api]` koy, `[token]` koyma
-- Prisma: `npx prisma migrate dev --name <açıklama>`
+- Prisma: `npx prisma db push` (additive; DB'ye erişimli ortamdan, `DIRECT_URL`'de `sslmode=require`). `migrate dev` KULLANMA — hosted Postgres'te destructive reset riski.
 - Multer upload alan adı: `image`
 
 ## Görsel üretim (MCP)

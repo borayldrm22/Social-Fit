@@ -6,6 +6,7 @@ import OptionButton from '../../components/onboarding/OptionButton';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { useOnboardingTheme, ob, BRAND } from '../../components/onboarding/onboardingStyles';
 import { idealWeightRangeKg } from '../../utils/calculations';
+import { parseDecimal } from '../../utils/parseDecimal';
 
 export default function OnboardingProfile({ navigation }) {
   const { c } = useOnboardingTheme();
@@ -31,10 +32,11 @@ export default function OnboardingProfile({ navigation }) {
   });
 
   const onSubmit = (data) => {
+    // parseDecimal: TR klavyede virgüllü ondalık ("70,5") parseFloat'ta 70'e düşüyordu
     setAge(parseInt(data.age, 10));
-    setHeightCm(parseFloat(data.heightCm));
-    setCurrentWeightKg(parseFloat(data.currentWeightKg));
-    setTargetWeightKg(parseFloat(data.targetWeightKg));
+    setHeightCm(parseDecimal(data.heightCm));
+    setCurrentWeightKg(parseDecimal(data.currentWeightKg));
+    setTargetWeightKg(parseDecimal(data.targetWeightKg));
     navigation.navigate('OnboardingActivity');
   };
 
@@ -44,9 +46,9 @@ export default function OnboardingProfile({ navigation }) {
   const tw = watch('targetWeightKg');
 
   const ageN = parseInt(a, 10);
-  const hN = parseFloat(h);
-  const cwN = parseFloat(cw);
-  const twN = parseFloat(tw);
+  const hN = parseDecimal(h);
+  const cwN = parseDecimal(cw);
+  const twN = parseDecimal(tw);
   const valid =
     gender &&
     ageN >= 10 &&

@@ -8,10 +8,10 @@ Bu dosya her oturumda otomatik yüklenir. Tüm agent'lar buradan başlar. Detay 
 
 Social Fit — sağlıklı yaşam odaklı bir sosyal medya uygulaması (TR pazarı öncelik, sonra global). Kullanıcılar öğün/spor paylaşır, **streak ve yıldız puanı** kazanır, **WhatsApp benzeri kanal/grup'lara** katılır, **diyetisyen rezervasyonu** alır, **haftalık özet kartı**nı Instagram'a paylaşır. Stack: React Native + Expo (mobile), Node + Express + Prisma + PostgreSQL (Supabase, dev+prod). Hedef: gamification + sosyal baskı ile diyet motivasyonu.
 
-## Şu anki durum (Faz 1 — 2/10)
+## Şu anki durum (Faz 1 — 8/10, çekirdek döngü tamam)
 
-✅ Onboarding akışı | ✅ Onboarding tekrar gösterim fix | ✅ SQLite→Postgres (Supabase)
-⏳ FoodLog backend + mobil ekranlar | ⏳ Star economy + leaderboard | ⏳ Group challenge | ⏳ Step2→Step3 kalori parseFloat bug | ⏳ Polling→Socket.io
+✅ Onboarding (8 adım: kullanıcı adı/telefon + rutin seçimi) | ✅ SQLite→Postgres (Supabase) | ✅ FoodLog + Beslenme ekranları | ✅ Star economy + leaderboard | ✅ Rutin takibi (Faz 3 UI) | ✅ Ayarlar redesign | ✅ Kalori parseFloat bug (TR virgül fix — `utils/parseDecimal`)
+⏳ Group challenge | ⏳ Polling→Socket.io | ⏳ Abonelik/paywall | ⏳ Dark mode & i18n (ayrı büyük projeler)
 
 5 fazlık roadmap için: `.cursor/skills/social-fit-domain/SKILL.md` (Cursor) veya `.claude/skills/social-fit-domain/SKILL.md` (Claude Code).
 
@@ -19,8 +19,8 @@ Social Fit — sağlıklı yaşam odaklı bir sosyal medya uygulaması (TR pazar
 
 ```
 backend/                  Express + Prisma + PostgreSQL (Supabase)
-  src/routes/             auth, foodlog, posts, groups, messages, streaks, leaderboard,
-                          coaches, bookings, notifications, tools, users
+  src/routes/             auth, foodlog, routines, recipes, posts, groups, messages, streaks,
+                          leaderboard, coaches, bookings, notifications, tools, users
   src/middleware/auth.js  JWT authMiddleware → req.user
   src/services/           starService (awardPoints), streak servisleri
   prisma/schema.prisma    ER modeli
@@ -30,7 +30,7 @@ mobile/                   React Native + Expo SDK 54
   src/api/client.js       useApi() hook'u — get/post/patch/delete/patchForm
   src/screens/
     auth/                 login + register
-    onboarding/           Curiosity Hook → Empati → Hedef → Profil → Kimlik → Kanal → Taahhüt → İlk görev
+    onboarding/           8 adımlı akış — hedef/profil/aktivite + rutin seçimi + kullanıcı adı & telefon (OnboardingSocialStep)
     main/                 Feed, Profile, Groups, Messages, Leaderboard
     foodlog/              Yemek günlüğü
   src/components/sf/      Atomic SocialFit component'leri
@@ -61,7 +61,7 @@ Dört subagent:
 - **`backend-ui-bridge`** — API kontratını (mobile ↔ backend) ve state/data-flow uyumunu tutarlı tutar
 - **`qa-reviewer`** — feature/refactor sonrası bağımsız review yapar, PASS/NEEDS-FIX/BLOCKED döner
 
-Sekiz skill (`.cursor/skills/` veya `.claude/skills/`):
+Dokuz skill (`.cursor/skills/` veya `.claude/skills/`):
 - `social-fit-domain` — ürün vizyonu, onboarding modeli, 5 fazlı roadmap
 - `ui-design-system` — Social Fit token kullanımı
 - `mobile-screen-patterns` — ekran iskeleti pattern'leri
@@ -118,5 +118,5 @@ On dört skill (`.claude/skills/marketing/`): `mkt-brand-voice`, `mkt-strategy`,
 
 - **DB:** Supabase PostgreSQL (dev+prod). SQLite→Postgres geçişi tamamlandı. Şema değişikliği `db push` ile (bkz. Kod ipuçları).
 - **Realtime:** Şu an polling, Socket.io geçişi Faz 1'de planlı.
-- **Auth:** JWT + email/şifre. Telefon (Firebase OTP) Faz 2'de.
+- **Auth:** JWT + email/şifre. Telefon numarası onboarding'de toplanıyor; OTP ile giriş (Firebase) Faz 2'de.
 - **Ödeme:** Iyzico Faz 2'de. Şu an ödeme yok.

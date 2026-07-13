@@ -15,19 +15,18 @@ Sağlıklı yaşamı oyun gibi yaşatan, **sosyal baskı + gamification + uzman 
 - Diyete başlayıp bırakanlar — sosyal motivasyon arıyor
 - Birinci grup: kilo vermek isteyenler; ikincil: kas kazanma + sürdürülebilir sağlıklı yaşam
 
-## Faz 1 — Çekirdek Geliştirme (şu an aktif, 2/10)
+## Faz 1 — Çekirdek Geliştirme (8/10, çekirdek döngü tamam)
 
 | Durum | Görev |
 |---|---|
-| ✅ | Onboarding akışı |
-| ✅ | Onboarding tekrar gösterim fix (var olan kullanıcıya gösterme) |
-| ⏳ | Yemek günlüğü — backend (FoodLog modeli, CRUD, besin arama) |
-| ⏳ | Yemek günlüğü — mobil (FoodLogScreen, AddFoodScreen, haftalık grafik) |
-| ⏳ | Yıldız puan ekonomisi (StarTransaction ile her eyleme puan log) |
-| ⏳ | Liderlik tablosu (haftalık/aylık/tüm zamanlar + podium UI) |
-| ⏳ | Onboarding Step2→Step3 kalori parseFloat bug |
+| ✅ | Onboarding akışı (8 adım — kullanıcı adı/telefon + rutin seçimi dahil) |
+| ✅ | Yemek günlüğü — backend (FoodLog CRUD, besin arama) + mobil (FoodLog/AddFood/haftalık) |
+| ✅ | Yıldız puan ekonomisi (StarTransaction ile her eyleme puan log) |
+| ✅ | Liderlik tablosu (haftalık/aylık/tüm zamanlar) |
+| ✅ | Onboarding kalori parseFloat bug (TR virgül fix — `utils/parseDecimal`) |
+| ✅ | SQLite → PostgreSQL geçişi (Supabase, dev+prod) |
+| ✅ | Rutin takibi (Faz 3 UI) + Ayarlar redesign |
 | ⏳ | Grup challenge sistemi (7 günlük yarış, mini leaderboard) |
-| ⏳ | SQLite → PostgreSQL geçişi (prod için zorunlu) |
 | ⏳ | Polling → Socket.io geçişi (gerçek zamanlı sohbet) |
 
 ## Faz 2 — Monetizasyon & Altyapı (4-8 hafta)
@@ -74,8 +73,10 @@ Akış: **İlgi Uyandırma → Empati → Motivasyon → Hedef Netleştirme → 
 ## Gamification Kuralları
 
 - **Streak:** Günde en az 1 paylaşım/log → +1. Atlama → 0. Gün dönüşü 00:00 local.
-- **Yıldız puanı:** Her eylem `awardPoints` ile loglanır. Eylem-puan tablosu (öneri):
-  - Post: 10, comment: 3, like: 1, foodlog: 5, daily streak bonus: 5, group challenge: 20
+- **Yıldız puanı:** Her eylem `awardPoints` ile loglanır. Güncel puan tablosu (koddaki değerler):
+  - Günlük paylaşım (post veya foodlog, günde **MAX 1**): **20** — `recordStreak` içinde merkezî verilir
+  - Haftalık seri bonusu (7/14/21… ardışık günde): **50** (`streak_weekly`)
+  - Grup katılımı: **10** (bir kez) · Yorum: 2 · beğeni alınan: 1 · arkadaş eklenen: 15 · profil tamamlama: 20 · koç randevu: 25 (**koç başına bir kez**)
 - **Rozet:** 7/14/30/60/90/180/365 gün streak'te otomatik.
 - **Leaderboard:** Haftalık (Pazartesi reset), aylık (1. reset), tüm zamanlar.
 - **Aylık ödül:** 1.'ye sponsor ürün / kişisel diyet listesi.

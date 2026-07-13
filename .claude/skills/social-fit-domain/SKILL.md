@@ -15,19 +15,18 @@ Sağlıklı yaşamı oyun gibi yaşatan, **sosyal baskı + gamification + uzman 
 - Diyete başlayıp bırakanlar — sosyal motivasyon arıyor
 - Birinci grup: kilo vermek isteyenler; ikincil: kas kazanma + sürdürülebilir sağlıklı yaşam
 
-## Faz 1 — Çekirdek Geliştirme (şu an aktif, 2/10)
+## Faz 1 — Çekirdek Geliştirme (8/10, çekirdek döngü tamam)
 
 | Durum | Görev |
 |---|---|
-| ✅ | Onboarding akışı |
-| ✅ | Onboarding tekrar gösterim fix (var olan kullanıcıya gösterme) |
-| ⏳ | Yemek günlüğü — backend (FoodLog modeli, CRUD, besin arama) |
-| ⏳ | Yemek günlüğü — mobil (FoodLogScreen, AddFoodScreen, haftalık grafik) |
-| ⏳ | Yıldız puan ekonomisi (StarTransaction ile her eyleme puan log) |
-| ⏳ | Liderlik tablosu (haftalık/aylık/tüm zamanlar + podium UI) |
-| ⏳ | Onboarding Step2→Step3 kalori parseFloat bug |
+| ✅ | Onboarding akışı (8 adım — kullanıcı adı/telefon + rutin seçimi dahil) |
+| ✅ | Yemek günlüğü — backend (FoodLog CRUD, besin arama) + mobil (FoodLog/AddFood/haftalık) |
+| ✅ | Yıldız puan ekonomisi (StarTransaction ile her eyleme puan log) |
+| ✅ | Liderlik tablosu (haftalık/aylık/tüm zamanlar) |
+| ✅ | Onboarding kalori parseFloat bug (TR virgül fix — `utils/parseDecimal`) |
+| ✅ | SQLite → PostgreSQL geçişi (Supabase, dev+prod) |
+| ✅ | Rutin takibi (Faz 3 UI) + Ayarlar redesign |
 | ⏳ | Grup challenge sistemi (7 günlük yarış, mini leaderboard) |
-| ⏳ | SQLite → PostgreSQL geçişi (prod için zorunlu) |
 | ⏳ | Polling → Socket.io geçişi (gerçek zamanlı sohbet) |
 
 ## Faz 2 — Monetizasyon & Altyapı (4-8 hafta)

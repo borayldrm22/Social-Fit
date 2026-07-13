@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Scro
 import { Ionicons } from '@expo/vector-icons';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { parseDecimal } from '../../utils/parseDecimal';
 
 const KVKK_TEXT = `Bu uygulama kapsamında toplanan sağlık ve beslenme verileriniz (kilo, boy, kalori hedefi, hedef notları) 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında "özel nitelikli kişisel veri" sayılmaktadır. Bu verilerin işlenmesi için açık rızanız gerekmektedir. Verileriniz yalnızca size özel diyet ve beslenme önerileri sunmak amacıyla kullanılacaktır. Beslenme önerileri doktor onayıyla değerlendirilmelidir.`;
 
@@ -21,8 +22,8 @@ export default function EditProfileScreen({ navigation }) {
   const [showKvkkModal, setShowKvkkModal] = useState(false);
 
   const hasHealthData = () =>
-    (weightKg && parseFloat(weightKg) > 0) ||
-    (heightCm && parseFloat(heightCm) > 0) ||
+    (weightKg && parseDecimal(weightKg) > 0) ||
+    (heightCm && parseDecimal(heightCm) > 0) ||
     (dailyCalorieGoal && parseInt(dailyCalorieGoal, 10) > 0) ||
     (goalNote && goalNote.trim().length > 0);
 
@@ -31,8 +32,8 @@ export default function EditProfileScreen({ navigation }) {
     try {
       const body = {
         displayName: displayName.trim() || profile.displayName,
-        weightKg: weightKg ? parseFloat(weightKg) : undefined,
-        heightCm: heightCm ? parseFloat(heightCm) : undefined,
+        weightKg: weightKg ? parseDecimal(weightKg) : undefined,
+        heightCm: heightCm ? parseDecimal(heightCm) : undefined,
         dailyCalorieGoal: dailyCalorieGoal ? parseInt(dailyCalorieGoal, 10) : undefined,
         goalNote: goalNote.trim() || undefined,
         isPublic,

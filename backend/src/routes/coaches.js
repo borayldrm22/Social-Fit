@@ -1,8 +1,7 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const prisma = require('../lib/prisma');
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 // List coaches (public for browsing; auth required to book)
