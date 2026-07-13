@@ -1,13 +1,12 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { recordStreak } = require('./streaks');
 const { uploadFile } = require('../services/storageService');
 const foods = require('../data/foods');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const router = express.Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });

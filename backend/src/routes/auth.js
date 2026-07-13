@@ -2,10 +2,9 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const prisma = require('../lib/prisma');
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET;

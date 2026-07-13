@@ -1,10 +1,9 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { awardPoints } = require('../services/starService');
+const prisma = require('../lib/prisma');
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 router.use(authMiddleware);
@@ -38,6 +37,17 @@ router.post(
       if (!coach) return res.status(404).json({ error: 'Koç bulunamadı' });
       const slotDate = new Date(slotAt);
       if (slotDate <= new Date()) return res.status(400).json({ error: 'Geçmiş bir tarih seçilemez' });
+      // Aynı koç + aynı saat için mükerrer randevuyu engelle
+      const dupe = await prisma.booking.findFirst({
+        where: { userId: req.user.id, coachId, slotAt: slotDate },
+        select: { id: true },
+      });
+      if (dupe) return res.status(409).json({ error: 'Bu saat için zaten randevun var' });
+      // Puan farming önlemi: +25 yıldız koç başına yalnızca İLK randevuda verilir
+      const priorWithCoach = await prisma.booking.findFirst({
+        where: { userId: req.user.id, coachId },
+        select: { id: true },
+      });
       const booking = await prisma.booking.create({
         data: {
           userId: req.user.id,
@@ -49,7 +59,7 @@ router.post(
           coach: { select: { id: true, displayName: true, avatarUrl: true } },
         },
       });
-      await awardPoints(req.user.id, 25, 'coach_booked', booking.id);
+      if (!priorWithCoach) await awardPoints(req.user.id, 25, 'coach_booked', booking.id);
       res.status(201).json(booking);
     } catch (e) {
       next(e);

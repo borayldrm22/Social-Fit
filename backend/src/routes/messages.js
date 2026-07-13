@@ -1,10 +1,10 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { getStarPointsForUserIds } = require('../lib/streakStats');
+const { publicProfileSelect } = require('../lib/publicProfile');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const router = express.Router();
 
 router.use(authMiddleware);
@@ -16,13 +16,13 @@ router.get('/conversations', async (req, res, next) => {
       where: { senderId: req.user.id },
       distinct: ['receiverId'],
       orderBy: { createdAt: 'desc' },
-      include: { receiver: { select: { id: true, profile: true } } },
+      include: { receiver: { select: { id: true, profile: { select: publicProfileSelect } } } },
     });
     const received = await prisma.message.findMany({
       where: { receiverId: req.user.id },
       distinct: ['senderId'],
       orderBy: { createdAt: 'desc' },
-      include: { sender: { select: { id: true, profile: true } } },
+      include: { sender: { select: { id: true, profile: { select: publicProfileSelect } } } },
     });
     // Her sohbet için GERÇEKTEN en son mesajı seç (önceden sent listesi hep
     // öncelikliydi → karşı tarafın daha yeni mesajı varken benim eski mesajım görünüyordu)
@@ -112,7 +112,7 @@ router.get('/:userId', async (req, res, next) => {
       },
       orderBy: { createdAt: 'asc' },
       include: {
-        sender: { select: { id: true, profile: true } },
+        sender: { select: { id: true, profile: { select: publicProfileSelect } } },
       },
     });
     await prisma.message.updateMany({
@@ -136,7 +136,7 @@ router.post(
       const { receiverId, body } = req.body;
       const message = await prisma.message.create({
         data: { senderId: req.user.id, receiverId, body },
-        include: { sender: { select: { id: true, profile: true } } },
+        include: { sender: { select: { id: true, profile: { select: publicProfileSelect } } } },
       });
       res.status(201).json(message);
     } catch (e) {

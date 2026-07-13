@@ -1,11 +1,10 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { awardPoints } = require('../services/starService');
 const { recordStreak } = require('./streaks');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const router = express.Router();
 router.use(authMiddleware);
 

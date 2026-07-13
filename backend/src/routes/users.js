@@ -1,14 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 const { getStarPointsForUserIds, getCurrentStreakForUserIds } = require('../lib/streakStats');
+const { publicProfileSelect } = require('../lib/publicProfile');
 const { awardPoints, getStarPointsInPeriod } = require('../services/starService');
 const { uploadFile } = require('../services/storageService');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const router = express.Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -288,7 +288,7 @@ router.get('/suggestions', async (req, res, next) => {
 
     const users = await prisma.user.findMany({
       where: { id: { in: topUserIds } },
-      select: { id: true, profile: true },
+      select: { id: true, profile: { select: publicProfileSelect } },
     });
     const ordered = topUserIds.map((id) => users.find((u) => u.id === id)).filter(Boolean);
     const [starPointsMap, currentStreakMap] = await Promise.all([
@@ -358,7 +358,7 @@ router.get('/:id', async (req, res, next) => {
       select: {
         id: true,
         lastSeenAt: true,
-        profile: true,
+        profile: { select: publicProfileSelect },
         _count: { select: { posts: true } },
       },
     });
@@ -448,7 +448,7 @@ router.get('/:id/followers', async (req, res, next) => {
   try {
     const rows = await prisma.friendship.findMany({
       where: { friendId: req.params.id, status: 'accepted' },
-      include: { user: { select: { id: true, profile: true } } },
+      include: { user: { select: { id: true, profile: { select: publicProfileSelect } } } },
       orderBy: { createdAt: 'desc' },
     });
     res.json(rows.map((r) => ({ id: r.user.id, profile: r.user.profile })));
@@ -460,7 +460,7 @@ router.get('/:id/following', async (req, res, next) => {
   try {
     const rows = await prisma.friendship.findMany({
       where: { userId: req.params.id, status: 'accepted' },
-      include: { friend: { select: { id: true, profile: true } } },
+      include: { friend: { select: { id: true, profile: { select: publicProfileSelect } } } },
       orderBy: { createdAt: 'desc' },
     });
     res.json(rows.map((r) => ({ id: r.friend.id, profile: r.friend.profile })));
@@ -573,8 +573,16 @@ router.post('/friends/accept', async (req, res, next) => {
     await prisma.friendship.update({ where: { id: fr.id }, data: { status: 'accepted' } });
     const requesterId = fr.userId;
     const acceptorId = req.user.id;
-    await awardPoints(requesterId, 15, 'friend_added', fr.id);
-    await awardPoints(acceptorId, 15, 'friend_added', fr.id);
+    // +15 aynı çift için ömür boyu 1 kez — çık/tekrar-ekle collusion loop'unu kapatır.
+    // refId = karşı tarafın userId'si; friendship.id silinip yeniden oluştuğu için kalıcı iz olamaz.
+    const already = await prisma.starTransaction.findFirst({
+      where: { userId: acceptorId, reason: 'friend_added', refId: requesterId },
+      select: { id: true },
+    });
+    if (!already) {
+      await awardPoints(requesterId, 15, 'friend_added', acceptorId);
+      await awardPoints(acceptorId, 15, 'friend_added', requesterId);
+    }
     res.json({ message: 'Arkadaşlık kabul edildi' });
   } catch (e) {
     next(e);
@@ -590,8 +598,8 @@ router.get('/friends', async (req, res, next) => {
         status: 'accepted',
       },
       include: {
-        user: { select: { id: true, profile: true } },
-        friend: { select: { id: true, profile: true } },
+        user: { select: { id: true, profile: { select: publicProfileSelect } } },
+        friend: { select: { id: true, profile: { select: publicProfileSelect } } },
       },
     });
     const friends = list.map((f) => {
