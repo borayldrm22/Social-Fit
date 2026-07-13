@@ -1,11 +1,12 @@
-# Supabase + Render Geçiş Rehberi
+# Supabase + Render Kurulum Rehberi
 
-Kod tarafı hazır. Bu dosyadaki adımlar **senin yapman gereken** hesap/altyapı kurulumudur
-(ben senin adına Supabase/Render hesabı açamam). Adımlar sırayla.
+> **✅ GEÇİŞ TAMAMLANDI.** DB artık Supabase PostgreSQL (dev+prod), deploy Render Frankfurt'ta canlı.
+> Bu dosya, sıfırdan kurulum/yeni ortam gerektiğinde referans olarak durur.
 
-Mevcut durum: kod hem **SQLite (dev)** hem **Supabase (prod)** ile çalışır.
+Mevcut durum:
+- DB: `schema.prisma` `provider = "postgresql"`; şema değişiklikleri `npx prisma db push` ile (**`migrate dev` KULLANMA** — hosted Postgres'te destructive reset riski).
 - Dosya yükleme: `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` **boşsa** yerel diske, **doluysa** Supabase Storage'a gider.
-- DB: `schema.prisma`'daki `provider` hâlâ `sqlite`. Postgres'e geçerken tek satır değişir (aşağıda).
+- ⚠️ `DIRECT_URL` sonuna **`?sslmode=require`** şart — Supabase pooler self-signed cert zinciri kullanır; eksikse `db push` **P1001** ile düşer.
 
 ---
 
@@ -19,11 +20,11 @@ Mevcut durum: kod hem **SQLite (dev)** hem **Supabase (prod)** ile çalışır.
 - Aynı yerden **direct** (port **5432**): `DIRECT_URL`.
 - **Settings → API**: `Project URL` → `SUPABASE_URL`; `service_role` secret → `SUPABASE_SERVICE_KEY` (⚠️ mobile'a asla koyma).
 
-## 3) Prisma'yı Postgres'e çevir
+## 3) Prisma yapılandırması (mevcut hali — referans)
 `backend/prisma/schema.prisma` datasource bloğu:
 ```prisma
 datasource db {
-  provider  = "postgresql"      // önceden: "sqlite"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -31,7 +32,7 @@ datasource db {
 `backend/.env` içine (2. adımdaki değerlerle):
 ```
 DATABASE_URL="postgresql://...:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgresql://...:5432/postgres"
+DIRECT_URL="postgresql://...:5432/postgres?sslmode=require"
 SUPABASE_URL="https://<ref>.supabase.co"
 SUPABASE_SERVICE_KEY="<service_role>"
 SUPABASE_BUCKET="uploads"

@@ -21,7 +21,9 @@ Bir Social Fit kullanıcısı olarak, Beslenme sekmesinde gerçek tariflere (mal
 `imageUrl` = `${BASE_URL}/uploads/recipes/<slug>.jpg` (mutlak). `GET /:id` MVP'de yok (liste tam kayıt döner; detay `route.params.recipe` kullanır).
 
 ## Prisma
-Yeni `Recipe` modeli (SQLite JSON-string deseni — `Post.tags` gibi: `tags`/`ingredients`/`steps` String). Migration: `add_recipe_model`. Veri migrasyonu yok (seed ile dolar). Tam şema plan dosyasında.
+> ✅ **Bu feature yayında** (`backend/src/routes/recipes.js` + `RecipesScreen`/`RecipeDetailScreen`). Aşağısı orijinal spec — referans.
+
+Yeni `Recipe` modeli (Postgres; JSON-string deseni — `Post.tags` gibi: `tags`/`ingredients`/`steps` String). Şema `db push` ile uygulandı. Veri migrasyonu yok (seed ile dolar).
 
 ## Mobile
 - `RecipesScreen.js`: `/recipes`→`/api/recipes`; `FEATURED/GRID/CATS` mock kaldır; `isFeatured` → öne çıkan kart; `Placeholder`→`<Image>` + onError; chip filtre; loading/empty/error state. Kategoriler `['Tümü','Kahvaltı','Yüksek Protein','Atıştırmalık']` ("Vegan" yok).
@@ -35,7 +37,7 @@ Boş/filtre-boş liste → empty state · görsel 404 → `onError` Placeholder 
 `/:id` endpoint · tarif arama (search bar dekoratif) · favori persist (bookmark dekoratif) · tarif oluşturma · backend-side filtre · starService/streak entegrasyonu · feed'e paylaşma.
 
 ## Test
-1. `npx prisma migrate dev --name add_recipe_model && npm run db:seed` → "recipes seeded".
+1. `npx prisma db push && npm run db:seed` → "recipes seeded".
 2. `curl -s localhost:4000/api/recipes | jq length` → 7; `.[0].ingredients|type` → "array".
 3. `curl -sI localhost:4000/uploads/recipes/protein-pancake.jpg` → 200 image/jpeg.
 4. Simulator: Beslenme → Tarifler → 7 tarif + filtre + detay (gerçek malzeme/adım/makro/Fit Not). Mock metin yok.

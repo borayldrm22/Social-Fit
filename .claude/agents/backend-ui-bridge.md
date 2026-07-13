@@ -33,7 +33,7 @@ Sen Social Fit'in backend (`backend/`) ile mobile (`mobile/`) arasındaki kontra
 
 **C) Prisma schema değişti:**
 1. Migration var mı kontrol et (`backend/prisma/migrations/`).
-2. Yoksa `npx prisma migrate dev --name <açıklama>` komutunu öner.
+2. Yoksa `npx prisma db push` komutunu öner (hosted Supabase Postgres — `migrate dev` DEĞİL, reset riski).
 3. Etkilenen route'larda select/include'ları güncelle.
 4. Mobile tarafta response shape değişimini ilgili screen'lere yansıt.
 

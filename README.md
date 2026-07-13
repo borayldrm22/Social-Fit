@@ -339,8 +339,8 @@ The app is accompanied by a marketing/dietitian website. Key pages:
 
 ### What’s in place
 
-- **Backend ([backend/](backend/)):** Express API, Prisma schema with User, Profile, Post, Like, Comment, Group, GroupMember, Message, Friendship, Streak, Badge, UserBadge, Coach, Booking, Subscription. Routes: auth, users, posts, groups, streaks, leaderboard, messages, tools. Auth: email/password, JWT, bcrypt. SQLite (MVP); migration path to PostgreSQL noted in spec.
-- **Mobile ([mobile/](mobile/)):** React Native (Expo), auth flow (welcome, login, register), main tabs: Feed, Create Post, Groups, Leaderboard, Messages, More. Screens: Feed, CreatePost, Comment, Groups, GroupFeed, CreateGroup, Leaderboard, Messages, Chat, Profile, EditProfile, Settings, Tools (e.g. BMI), Blog list/detail. Settings includes KVKK link. No phone login, no star points in UI, no “Talk to my dietitian” button on feed, no payment or push yet.
+- **Backend ([backend/](backend/)):** Express API, Prisma schema with User, Profile, Post, Like, Comment, SavedPost, Group, GroupMember, Message, Friendship, Streak, Badge, UserBadge, Routine, RoutineLog, FoodLog, Coach, Booking, Subscription, Notification. Routes: auth, users, posts, groups, streaks, leaderboard, messages, tools, foodlog, routines, recipes, coaches, bookings, notifications. Auth: email/password, JWT, bcrypt. PostgreSQL (Supabase, dev+prod); schema changes via `prisma db push`. Deploy: Render (Frankfurt).
+- **Mobile ([mobile/](mobile/)):** React Native (Expo SDK 54), auth flow + 8-step onboarding (username & phone + routine selection dahil), main tabs: Feed, Create, Groups, Messages, Profile (+ Nutrition & More stacks). Screens: Feed (foto zoom'lu), CreatePost, Comments, Groups/GroupFeed/Discover/Map, Messages/Chat (gerçek son-görülme), Profile/EditProfile, Nutrition/FoodLog/AddFood, Routines/AddRoutine, Recipes, Leaderboard, Coaches/Booking, Notifications, Tools, Settings (PersonalInfo, ChangePassword, RateUs, Info sayfaları). Star points UI'da her yerde (StarPill + kutlama overlay). Henüz yok: ödeme, push bildirimi, telefonla giriş (numara toplanıyor, OTP Faz 2).
 
 ### Gap vs Must-Have (launch blockers)
 
@@ -360,9 +360,9 @@ The app is accompanied by a marketing/dietitian website. Key pages:
 
 ### Roadmap (48 görev / 5 faz)
 
-**Faz 1 — Çekirdek Geliştirme** (şu an aktif, **2/10**)
-- ✅ Onboarding akışı  ·  ✅ Onboarding tekrar gösterim fix
-- ⏳ Yemek günlüğü (backend + mobile) · Yıldız puan ekonomisi · Liderlik tablosu · Step2→Step3 kalori parseFloat bug · Grup challenge · SQLite→PostgreSQL · Polling→Socket.io
+**Faz 1 — Çekirdek Geliştirme** (şu an aktif, **8/10**)
+- ✅ Onboarding akışı (8 adım) · ✅ Onboarding tekrar gösterim fix · ✅ Yemek günlüğü (backend + mobile) · ✅ Yıldız puan ekonomisi · ✅ Liderlik tablosu · ✅ SQLite→PostgreSQL (Supabase) · ✅ Kalori parseFloat bug (TR virgül fix) · ✅ Rutin takibi
+- ⏳ Grup challenge · Polling→Socket.io
 
 **Faz 2 — Monetizasyon & Altyapı** (4-8 hafta, 0/8)
 - Iyzico ödeme · Premium abonelik (ilk ay ücretsiz) · FCM push · Firebase OTP telefon girişi · Haftalık paylaşım kartı · Blog CMS (Strapi/Contentful) · Rate limiting · İçerik moderasyonu
@@ -382,7 +382,7 @@ Detaylı görev listesi ve sahiplik: `.claude/skills/social-fit-domain/SKILL.md`
 
 Akış: **İlgi → Empati → Motivasyon → Hedef → Profil → İlerleme → Kimlik → Kanal → Taahhüt → İlk mikro-görev → Sonuç**.
 
-Kurallar: tek soru/tek ekran, her ekranda progress bar, büyük seçim butonları, **sonuç ekranı kişisel değer üretmeli** (günlük kalori hedefi, hedef süresi gibi). Toplam 10-12 ekran ideal. Mevcut implementasyon: `mobile/src/screens/onboarding/`.
+Kurallar: tek soru/tek ekran, her ekranda progress bar, büyük seçim butonları, **sonuç ekranı kişisel değer üretmeli** (günlük kalori hedefi, hedef süresi gibi). Mevcut implementasyon: **8 adımlı akış** (profil/aktivite + rutin seçimi + kullanıcı adı & telefon adımları dahil) — `mobile/src/screens/onboarding/`.
 
 Detaylı adım adım soru seti: `.claude/skills/social-fit-domain/SKILL.md`.
 
