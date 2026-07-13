@@ -223,11 +223,15 @@ router.post(
           user: { select: { id: true, profile: { select: publicProfileSelect } } },
         },
       });
-      // Streak + günlük yıldız puanı (günde max 1, recordStreak içinde) — non-fatal
-      recordStreak(req.user.id).catch((e) =>
-        console.error('[recordStreak] failed:', e.message)
-      );
-      res.status(201).json({ ...post, tags: tagsArr, metadata: metadataObj });
+      // Streak + günlük yıldız puanı (günde max 1 — recordStreak içinde). Await edilir ki
+      // kazanılan puan yanıtla dönsün (mobil kutlama); hata post'u düşürmesin (non-fatal).
+      let streak = null;
+      try {
+        streak = await recordStreak(req.user.id);
+      } catch (e) {
+        console.error('[recordStreak] failed:', e.message);
+      }
+      res.status(201).json({ ...post, tags: tagsArr, metadata: metadataObj, awarded: streak?.awarded || 0, bonus: streak?.bonus || 0 });
     } catch (e) {
       next(e);
     }

@@ -17,10 +17,7 @@ const EXAMPLE_LEADERBOARD = [
 
 router.use(authMiddleware);
 
-function toDateOnly(d) {
-  const x = new Date(d);
-  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
-}
+const { toDateOnly } = require('../lib/dateUtils');
 
 function startOfWeekUTC() {
   const now = new Date();

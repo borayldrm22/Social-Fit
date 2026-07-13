@@ -94,13 +94,11 @@ export default function CreatePostScreen({ navigation, route }) {
         formData.append('image', { uri, name: filename, type: mimeType });
       }
 
-      await uploadFormData('/api/posts', formData, token);
-
-      let reward = null;
-      try {
-        const res = await api.post('/api/streaks/record');
-        if (res?.awarded > 0) reward = { points: res.awarded, bonus: res.bonus || 0 };
-      } catch (_) {}
+      // POST /api/posts zaten recordStreak çalıştırıp {awarded, bonus} döner — ayrı
+      // /streaks/record çağrısı yapılmaz (yapılınca gün işaretli olduğundan hep 0 dönüyordu
+      // ve ilk paylaşım kutlaması hiç çıkmıyordu).
+      const created = await uploadFormData('/api/posts', formData, token);
+      const reward = created?.awarded > 0 ? { points: created.awarded, bonus: created.bonus || 0 } : null;
 
       const parent = navigation.getParent();
       if (parent) parent.navigate('Feed');

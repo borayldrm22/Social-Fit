@@ -1,7 +1,4 @@
-function toDateOnly(d) {
-  const x = new Date(d);
-  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
-}
+const { toDateOnly } = require('./dateUtils');
 
 /**
  * Compute current streak for one user from their streak records (ordered by date desc).

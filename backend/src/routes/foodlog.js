@@ -13,10 +13,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 router.use(authMiddleware);
 
-function toDateOnly(d) {
-  const x = new Date(d);
-  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
-}
+const { toDateOnly } = require('../lib/dateUtils');
 
 function toNumber(value) {
   if (value == null || value === '') return null;
