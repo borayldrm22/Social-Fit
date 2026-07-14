@@ -3,6 +3,7 @@ const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const { authMiddleware } = require('../middleware/auth');
 const { recordStreak } = require('./streaks');
+const { awardPoints } = require('../services/starService');
 const { uploadFile } = require('../services/storageService');
 const foods = require('../data/foods');
 
@@ -13,7 +14,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 router.use(authMiddleware);
 
-const { toDateOnly } = require('../lib/dateUtils');
+const { toDateOnly, startOfDayInstant } = require('../lib/dateUtils');
+
+// Öğün loglama ödülü: her öğün +2, günde ilk MEAL_DAILY_CAP öğün (farm'a kapalı — StarTransaction sayacıyla)
+const MEAL_POINTS = 2;
+const MEAL_DAILY_CAP = 3;
 
 function toNumber(value) {
   if (value == null || value === '') return null;
@@ -110,11 +115,26 @@ router.post(
         },
       });
 
-      // Streak + günlük yıldız puanı (günde max 1 — recordStreak içinde)
+      // Streak + günlük "aktif oldun" puanı (günde max 1 — recordStreak içinde)
       const streak = await recordStreak(req.user.id);
 
-      // Mobil kutlama animasyonu için kazanılan puanı da döndür
-      res.status(201).json({ ...foodLog, awarded: streak?.awarded || 0, bonus: streak?.bonus || 0 });
+      // Öğün loglama ödülü: +2, günde ilk 3 öğün. Sayaç silinmeyen StarTransaction'a bakar
+      // (silinen foodLog satırına değil) → sil-tekrar-logla ile farm edilemez.
+      const mealAwardsToday = await prisma.starTransaction.count({
+        where: { userId: req.user.id, reason: 'meal_logged', createdAt: { gte: startOfDayInstant() } },
+      });
+      let mealAwarded = 0;
+      if (mealAwardsToday < MEAL_DAILY_CAP) {
+        mealAwarded = MEAL_POINTS;
+        await awardPoints(req.user.id, MEAL_POINTS, 'meal_logged', foodLog.id);
+      }
+
+      // Mobil kutlama: günlük aktif + öğün puanı toplamı (kalan bonus = haftalık seri)
+      res.status(201).json({
+        ...foodLog,
+        awarded: (streak?.awarded || 0) + mealAwarded,
+        bonus: streak?.bonus || 0,
+      });
     } catch (e) {
       next(e);
     }

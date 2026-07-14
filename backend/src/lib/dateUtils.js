@@ -10,4 +10,10 @@ function toDateOnly(d) {
   return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()));
 }
 
-module.exports = { toDateOnly, TR_OFFSET_MS };
+// TR gününün başladığı gerçek UTC anı — StarTransaction.createdAt (gerçek timestamp) filtresi için.
+// toDateOnly UTC-gece-yarısı işaretçisi döner; gerçek başlangıç anı ondan 3 saat öncedir.
+function startOfDayInstant(d = new Date()) {
+  return new Date(toDateOnly(d).getTime() - TR_OFFSET_MS);
+}
+
+module.exports = { toDateOnly, startOfDayInstant, TR_OFFSET_MS };
