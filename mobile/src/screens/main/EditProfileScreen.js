@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { parseDecimal } from '../../utils/parseDecimal';
+import { compressImage } from '../../utils/image';
+import { avatarUri } from '../../components/sf/ui';
+import { avatarColor, getInitials } from '../../theme/socialFitTheme';
 
 const KVKK_TEXT = `Bu uygulama kapsamında toplanan sağlık ve beslenme verileriniz (kilo, boy, kalori hedefi, hedef notları) 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında "özel nitelikli kişisel veri" sayılmaktadır. Bu verilerin işlenmesi için açık rızanız gerekmektedir. Verileriniz yalnızca size özel diyet ve beslenme önerileri sunmak amacıyla kullanılacaktır. Beslenme önerileri doktor onayıyla değerlendirilmelidir.`;
 
@@ -20,6 +24,41 @@ export default function EditProfileScreen({ navigation }) {
   const [isPublic, setIsPublic] = useState(profile.isPublic !== false); // default true
   const [loading, setLoading] = useState(false);
   const [showKvkkModal, setShowKvkkModal] = useState(false);
+  // null = dokunulmadı, '' = kaldırıldı, uri = yeni foto seçildi
+  const [newAvatarUri, setNewAvatarUri] = useState(null);
+
+  const existingAvatar = avatarUri(profile);
+  const shownAvatar = newAvatarUri === null ? existingAvatar : (newAvatarUri || null);
+
+  const pickFrom = async (source) => {
+    const perm = source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert('İzin gerekli', source === 'camera'
+        ? 'Fotoğraf çekmek için kamera iznine ihtiyaç var.'
+        : 'Fotoğraf seçmek için galeri iznine ihtiyaç var.');
+      return;
+    }
+    const opts = { allowsEditing: true, aspect: [1, 1], quality: 0.8 };
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync(opts)
+      : await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      const a = result.assets[0];
+      setNewAvatarUri(await compressImage(a.uri, { maxWidth: 512, width: a.width }));
+    }
+  };
+
+  const changePhoto = () => {
+    const options = [
+      { text: 'Galeriden seç', onPress: () => pickFrom('library') },
+      { text: 'Fotoğraf çek', onPress: () => pickFrom('camera') },
+    ];
+    if (shownAvatar) options.push({ text: 'Fotoğrafı kaldır', style: 'destructive', onPress: () => setNewAvatarUri('') });
+    options.push({ text: 'İptal', style: 'cancel' });
+    Alert.alert('Profil fotoğrafı', null, options);
+  };
 
   const hasHealthData = () =>
     (weightKg && parseDecimal(weightKg) > 0) ||
@@ -39,7 +78,24 @@ export default function EditProfileScreen({ navigation }) {
         isPublic,
       };
       if (withConsent) body.kvkkConsent = true;
-      await api.patch('/api/users/me', body);
+
+      if (newAvatarUri === null) {
+        await api.patch('/api/users/me', body);
+      } else {
+        // Foto değişti → multipart. Backend multipart'ta string boolean/sayıları normalize ediyor.
+        const formData = new FormData();
+        for (const [k, v] of Object.entries(body)) {
+          if (v !== undefined) formData.append(k, typeof v === 'string' ? v : String(v));
+        }
+        if (newAvatarUri) {
+          const filename = newAvatarUri.split('/').pop() || 'avatar.jpg';
+          const ext = filename.split('.').pop() || 'jpg';
+          formData.append('avatar', { uri: newAvatarUri, name: filename, type: `image/${ext}` });
+        } else {
+          formData.append('removeAvatar', 'true');
+        }
+        await api.patchForm('/api/users/me', formData);
+      }
       await refreshUser();
       setShowKvkkModal(false);
       navigation.goBack();
@@ -82,6 +138,27 @@ export default function EditProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       )}
+      {/* Profil fotoğrafı */}
+      <View style={styles.avatarSection}>
+        <TouchableOpacity onPress={changePhoto} activeOpacity={0.8} style={styles.avatarWrap}>
+          {shownAvatar ? (
+            <Image source={{ uri: shownAvatar }} style={styles.avatarImage} />
+          ) : (
+            <View style={[styles.avatarImage, styles.avatarFallback, { backgroundColor: avatarColor(displayName) }]}>
+              <Text style={styles.avatarInitials}>{getInitials(displayName)}</Text>
+            </View>
+          )}
+          <View style={styles.avatarBadge}>
+            <Ionicons name="camera" size={16} color="#fff" />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={changePhoto} activeOpacity={0.7}>
+          <Text style={styles.avatarAction}>
+            {shownAvatar ? 'Fotoğrafı değiştir' : 'Fotoğraf ekle'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <TextInput style={styles.input} placeholder="Görünen ad" value={displayName} onChangeText={setDisplayName} />
       <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Biyografi — kendinden bahset" value={goalNote} onChangeText={setGoalNote} multiline numberOfLines={3} />
       <TextInput style={styles.input} placeholder="Kilo (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" />
@@ -158,6 +235,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   onboardingBannerButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  avatarSection: { alignItems: 'center', marginBottom: 20 },
+  avatarWrap: { marginBottom: 8 },
+  avatarImage: { width: 96, height: 96, borderRadius: 48 },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  avatarInitials: { color: '#fff', fontSize: 34, fontWeight: '700' },
+  avatarBadge: {
+    position: 'absolute', right: -2, bottom: -2,
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#2d6a4f',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: '#fff',
+  },
+  avatarAction: { fontSize: 14, fontWeight: '600', color: '#2d6a4f' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 12 },
   privacyRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

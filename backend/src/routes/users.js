@@ -222,7 +222,11 @@ router.patch(
         if (taken) return res.status(409).json({ error: 'Bu kullanıcı adı alınmış' });
         data.username = uname;
       }
-      if (req.file) data.avatarUrl = await uploadFile(req.file.buffer, { prefix: 'avatar', originalname: req.file.originalname, contentType: req.file.mimetype });
+      if (req.file) {
+        data.avatarUrl = await uploadFile(req.file.buffer, { prefix: 'avatar', originalname: req.file.originalname, contentType: req.file.mimetype });
+      } else if (req.body.removeAvatar === true || req.body.removeAvatar === 'true') {
+        data.avatarUrl = null;
+      }
 
       const healthKeys = ['weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote'];
       const isUpdatingHealth = healthKeys.some((k) => req.body[k] !== undefined);
@@ -230,13 +234,15 @@ router.patch(
         where: { userId: req.user.id },
         select: { kvkkConsentAt: true },
       });
-      if (isUpdatingHealth && !existingProfile?.kvkkConsentAt && req.body.kvkkConsent !== true) {
+      // Multipart'ta boolean'lar string gelir — avatar yüklerken KVKK onayı boşa düşmesin
+      const kvkkConsent = req.body.kvkkConsent === true || req.body.kvkkConsent === 'true';
+      if (isUpdatingHealth && !existingProfile?.kvkkConsentAt && !kvkkConsent) {
         return res.status(403).json({
           error: 'KVKK_AUTH_REQUIRED',
           message: 'Sağlık verilerini kaydetmek için KVKK aydınlatma metnini kabul etmeniz gerekmektedir.',
         });
       }
-      if (req.body.kvkkConsent === true) {
+      if (kvkkConsent) {
         data.kvkkConsentAt = new Date();
       }
 
