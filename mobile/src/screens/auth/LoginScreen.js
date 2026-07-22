@@ -15,10 +15,22 @@ export default function LoginScreen({ navigation }) {
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async () => {
+    if (!email.trim() || !pass) {
+      setError('E-posta ve şifreni gir.');
+      return;
+    }
     setBusy(true);
-    try { await login?.(email, pass); } catch (e) {} finally { setBusy(false); }
+    setError('');
+    try {
+      await login?.(email.trim(), pass);
+    } catch (e) {
+      setError(e?.message || 'Giriş başarısız. Bilgilerini kontrol et.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -57,6 +69,13 @@ export default function LoginScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation?.navigate?.('ForgotPassword')}><Text style={styles.link}>Şifremi unuttum?</Text></TouchableOpacity>
         </View>
 
+        {error ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle-outline" size={17} color="#B91C1C" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
         <TouchableOpacity style={styles.cta} activeOpacity={0.85} onPress={submit} disabled={busy}>
           <Text style={styles.ctaText}>{busy ? 'Giriş yapılıyor…' : 'Giriş Yap'}</Text>
         </TouchableOpacity>
@@ -92,6 +111,12 @@ const styles = StyleSheet.create({
   checkbox: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.5, borderColor: '#CBD6CC', alignItems: 'center', justifyContent: 'center' },
   rememberText: { fontSize: 13, color: colors.muted, fontFamily: font.bodyBold },
   link: { fontSize: 13, color: colors.primary, fontFamily: font.bodyBold },
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+    borderRadius: 12, paddingVertical: 11, paddingHorizontal: 13, marginTop: 16,
+  },
+  errorText: { flex: 1, color: '#B91C1C', fontSize: 13.5, fontFamily: font.body },
   cta: { backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 16, alignItems: 'center', marginTop: 22, ...shadow.cta },
   ctaText: { color: colors.white, fontFamily: font.bodyBold, fontSize: 16 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 22 },
