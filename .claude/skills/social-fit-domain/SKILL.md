@@ -76,8 +76,9 @@ Akış: **İlgi Uyandırma → Empati → Motivasyon → Hedef Netleştirme → 
 - **Yıldız puanı:** Her eylem `awardPoints` ile loglanır. Güncel puan tablosu:
   - Günlük paylaşım (post veya foodlog, günde **MAX 1**): **20** — `recordStreak` içinde merkezî verilir
   - Haftalık seri bonusu (7/14/21… ardışık günde): **50** (`streak_weekly`)
+  - Öğün loglama (foodlog): **2** (günde ilk 3 öğün, max +6 — `meal_logged`, farm'a kapalı) · Rutin tamamlama: **3** (rutin başına, günde 1 — `routine_done`)
   - Grup katılımı: **10** (grup başına, bir kez)
-  - Yorum: 2 · beğeni alınan: 1 · arkadaş eklenen: 15 · profil tamamlama: 20 · koç randevu: 25
+  - Yorum: 2 (başkasının postuna ilk yorum) · beğeni alınan: 1 (kendi postu hariç, unlike'ta −1) · arkadaş eklenen: 15 (çift başına 1 kez) · profil tamamlama: 20 · koç randevu: 25 (koç başına 1 kez)
 - **Rozet:** 7/14/30/60/90/180/365 gün streak'te otomatik.
 - **Leaderboard:** Haftalık (Pazartesi reset), aylık (1. reset), tüm zamanlar.
 - **Aylık ödül:** Ay sonunda **ilk 3'e** promosyon ödülleri (sponsor ürün / kişisel diyet planı).

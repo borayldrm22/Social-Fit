@@ -23,6 +23,9 @@ export default function CreatePostScreen({ navigation, route }) {
   const { celebrate } = useStarReward();
   const headerHeight = useHeaderHeight();
   const scrollRef = useRef(null);
+  // Grup akışından açıldıysa post o gruba düşer (GroupFeed → CreatePost)
+  const groupId = route.params?.groupId || null;
+  const groupName = route.params?.groupName || null;
   const [type, setType] = useState(route.params?.prefillType || 'meal'); // 'meal' | 'workout' | 'text'
   const [caption, setCaption] = useState(route.params?.prefillCaption || '');
   const [media, setMedia] = useState(null); // { uri, isVideo }
@@ -84,6 +87,7 @@ export default function CreatePostScreen({ navigation, route }) {
       const formData = new FormData();
       formData.append('type', type);
       if (caption.trim()) formData.append('caption', caption.trim());
+      if (groupId) formData.append('groupId', groupId); // grup akışına düşsün
 
       if (media) {
         const uri = media.uri;
@@ -94,17 +98,19 @@ export default function CreatePostScreen({ navigation, route }) {
         formData.append('image', { uri, name: filename, type: mimeType });
       }
 
-      await uploadFormData('/api/posts', formData, token);
+      // POST /api/posts zaten recordStreak çalıştırıp {awarded, bonus} döner — ayrı
+      // /streaks/record çağrısı yapılmaz (yapılınca gün işaretli olduğundan hep 0 dönüyordu
+      // ve ilk paylaşım kutlaması hiç çıkmıyordu).
+      const created = await uploadFormData('/api/posts', formData, token);
+      const reward = created?.awarded > 0 ? { points: created.awarded, bonus: created.bonus || 0 } : null;
 
-      let reward = null;
-      try {
-        const res = await api.post('/api/streaks/record');
-        if (res?.awarded > 0) reward = { points: res.awarded, bonus: res.bonus || 0 };
-      } catch (_) {}
-
-      const parent = navigation.getParent();
-      if (parent) parent.navigate('Feed');
-      else navigation.goBack();
+      if (groupId) {
+        navigation.goBack(); // grup akışına dön — focus'ta yeniden yüklenir
+      } else {
+        const parent = navigation.getParent();
+        if (parent) parent.navigate('Feed');
+        else navigation.goBack();
+      }
 
       // Navigasyon tamamlandıktan sonra global overlay'i tetikle
       if (reward) setTimeout(() => celebrate(reward), 350);
@@ -123,6 +129,16 @@ export default function CreatePostScreen({ navigation, route }) {
       keyboardVerticalOffset={headerHeight}
     >
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* Grup akışından açıldıysa hedefi göster */}
+      {groupId ? (
+        <View style={styles.groupBanner}>
+          <Ionicons name="people" size={16} color={GREEN} />
+          <Text style={styles.groupBannerText} numberOfLines={1}>
+            <Text style={styles.groupBannerName}>{groupName || 'Grup'}</Text> grubunda paylaşıyorsun
+          </Text>
+        </View>
+      ) : null}
+
       {/* Öğün / Spor tag seçimi */}
       <Text style={styles.sectionLabel}>İçerik türü</Text>
       <View style={styles.typeRow}>
@@ -221,6 +237,14 @@ export default function CreatePostScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 20, paddingBottom: 48 },
+
+  groupBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: GREEN_XL, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16,
+  },
+  groupBannerText: { flex: 1, fontSize: 13, color: '#374151' },
+  groupBannerName: { fontWeight: '700', color: GREEN },
 
   sectionLabel: {
     fontSize: 13, fontWeight: '700', color: '#6B7280',

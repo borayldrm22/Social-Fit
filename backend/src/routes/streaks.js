@@ -2,15 +2,11 @@ const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const { awardPoints, getStarPoints } = require('../services/starService');
 const prisma = require('../lib/prisma');
+const { toDateOnly } = require('../lib/dateUtils');
 
 const router = express.Router();
 
 router.use(authMiddleware);
-
-function toDateOnly(d) {
-  const x = new Date(d);
-  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
-}
 
 // Get my current streak and badges
 router.get('/me', async (req, res, next) => {
@@ -72,9 +68,8 @@ const DAILY_POST_POINTS = 20;
 const WEEKLY_STREAK_BONUS = 50;
 
 async function recordStreak(userId) {
-  const today = new Date(toDateOnly(new Date()));
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const today = toDateOnly(new Date());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
   // Bugün ilk aktivite mi? (puanı günde bir kez vermek için)
   const existingToday = await prisma.streak.findUnique({

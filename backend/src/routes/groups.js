@@ -99,7 +99,7 @@ router.get('/map', async (req, res, next) => {
     const memberIds = new Set(memberships.map((m) => m.groupId));
     const pendingIds = new Set(requests.map((r) => r.groupId));
     res.json(groups.map((g) => ({
-      id: g.id, name: g.name, latitude: g.latitude, longitude: g.longitude,
+      id: g.id, name: g.name, description: g.description, latitude: g.latitude, longitude: g.longitude,
       locationName: g.locationName, imageUrl: g.imageUrl, isPrivate: g.isPrivate,
       memberCount: g._count.members,
       isMember: memberIds.has(g.id), isPending: pendingIds.has(g.id),

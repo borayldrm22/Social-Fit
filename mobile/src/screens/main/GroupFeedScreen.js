@@ -94,6 +94,8 @@ export default function GroupFeedScreen({ route, navigation }) {
   const onRefresh = () => { setRefreshing(true); load(); };
 
   const isAdmin = group?.myRole === 'admin';
+  const isMember = !!group?.myRole; // admin veya üye → grupta paylaşabilir
+  const openComposer = () => navigation.navigate('CreatePost', { groupId, groupName: group?.name || groupName });
 
   const kickMember = (member) => {
     Alert.alert(
@@ -359,17 +361,35 @@ export default function GroupFeedScreen({ route, navigation }) {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
           tab === 'posts' ? (
-            loading
-              ? <Text style={styles.empty}>Yükleniyor...</Text>
-              : <Text style={styles.empty}>Bu grupta henüz paylaşım yok.</Text>
+            loading ? (
+              <Text style={styles.empty}>Yükleniyor...</Text>
+            ) : (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.empty}>Bu grupta henüz paylaşım yok.</Text>
+                {isMember ? (
+                  <TouchableOpacity style={styles.emptyCta} onPress={openComposer} activeOpacity={0.85}>
+                    <Ionicons name="add" size={18} color="#fff" />
+                    <Text style={styles.emptyCtaText}>İlk paylaşımı sen yap</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )
           ) : tab === 'members' ? renderMembersContent() : renderAboutContent()
         }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />
         }
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 96 }}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Grupta paylaş — yalnız üyelere, Gönderiler sekmesinde */}
+      {isMember && tab === 'posts' ? (
+        <TouchableOpacity style={styles.fab} onPress={openComposer} activeOpacity={0.9}>
+          <Ionicons name="add" size={22} color="#fff" />
+          <Text style={styles.fabText}>Paylaş</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -471,5 +491,19 @@ const styles = StyleSheet.create({
   aboutHint: { fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 14 },
 
   // Misc
-  empty: { textAlign: 'center', padding: 32, color: '#6B7280', fontSize: 15 },
+  empty: { textAlign: 'center', paddingHorizontal: 32, paddingTop: 32, paddingBottom: 14, color: '#6B7280', fontSize: 15 },
+  emptyWrap: { alignItems: 'center', paddingBottom: 24 },
+  emptyCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: GREEN, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 22,
+  },
+  emptyCtaText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  fab: {
+    position: 'absolute', right: 18, bottom: 26,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: GREEN, paddingHorizontal: 18, paddingVertical: 14, borderRadius: 28,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+  },
+  fabText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

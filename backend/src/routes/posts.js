@@ -201,6 +201,13 @@ router.post(
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
       const { caption, groupId } = req.body;
+      // Gruba paylaşım yalnız üyelere — groupId doğrulanmadan herkes grup akışına post atabiliyordu
+      if (groupId) {
+        const member = await prisma.groupMember.findUnique({
+          where: { userId_groupId: { userId: req.user.id, groupId } },
+        });
+        if (!member) return res.status(403).json({ error: 'Bu gruba üye değilsiniz' });
+      }
       const type = req.body.type || 'meal';
       const tagsArr = req.body.tags ? (Array.isArray(req.body.tags) ? req.body.tags : [req.body.tags]) : [];
       const tagsStr = JSON.stringify(tagsArr);
@@ -223,11 +230,15 @@ router.post(
           user: { select: { id: true, profile: { select: publicProfileSelect } } },
         },
       });
-      // Streak + günlük yıldız puanı (günde max 1, recordStreak içinde) — non-fatal
-      recordStreak(req.user.id).catch((e) =>
-        console.error('[recordStreak] failed:', e.message)
-      );
-      res.status(201).json({ ...post, tags: tagsArr, metadata: metadataObj });
+      // Streak + günlük yıldız puanı (günde max 1 — recordStreak içinde). Await edilir ki
+      // kazanılan puan yanıtla dönsün (mobil kutlama); hata post'u düşürmesin (non-fatal).
+      let streak = null;
+      try {
+        streak = await recordStreak(req.user.id);
+      } catch (e) {
+        console.error('[recordStreak] failed:', e.message);
+      }
+      res.status(201).json({ ...post, tags: tagsArr, metadata: metadataObj, awarded: streak?.awarded || 0, bonus: streak?.bonus || 0 });
     } catch (e) {
       next(e);
     }

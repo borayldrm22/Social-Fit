@@ -199,6 +199,16 @@ router.patch(
       const allowed = ['displayName', 'weightKg', 'heightCm', 'dailyCalorieGoal', 'goalNote', 'gender'];
       const data = {};
       for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
+      // Multipart'ta sayılar string gelir ("70,5" dahil) — Prisma Float/Int beklediği için 500 atıyordu
+      const toNum = (v) => Number(String(v).trim().replace(',', '.'));
+      if (data.weightKg !== undefined) data.weightKg = toNum(data.weightKg);
+      if (data.heightCm !== undefined) data.heightCm = toNum(data.heightCm);
+      if (data.dailyCalorieGoal !== undefined) data.dailyCalorieGoal = Math.round(toNum(data.dailyCalorieGoal));
+      for (const k of ['weightKg', 'heightCm', 'dailyCalorieGoal']) {
+        if (data[k] !== undefined && !Number.isFinite(data[k])) {
+          return res.status(400).json({ error: 'Geçersiz sayı değeri' });
+        }
+      }
       // isPublic toggle
       if (req.body.isPublic !== undefined) data.isPublic = req.body.isPublic === true || req.body.isPublic === 'true';
       if (req.body.phone !== undefined) data.phone = String(req.body.phone).trim() || null;

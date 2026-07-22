@@ -66,6 +66,9 @@ export default function GroupMapScreen({ navigation }) {
   const api = useApi();
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
+  // Marker'a basınca MapView.onPress de tetiklenip kartı anında kapatıyordu ("basılamıyor" hissi).
+  // Son marker dokunuşunun zamanını tutup harita basışını kısa süre yok sayıyoruz.
+  const lastMarkerTapRef = useRef(0);
   const [groups, setGroups] = useState([]);
   const [selected, setSelected] = useState(null);
   const [joiningId, setJoiningId] = useState(null);
@@ -144,9 +147,13 @@ export default function GroupMapScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <MapView ref={mapRef} provider={PROVIDER_DEFAULT} style={StyleSheet.absoluteFill} initialRegion={ISTANBUL} showsUserLocation showsMyLocationButton={false} onPress={() => setSelected(null)}>
+      <MapView ref={mapRef} provider={PROVIDER_DEFAULT} style={StyleSheet.absoluteFill} initialRegion={ISTANBUL} showsUserLocation showsMyLocationButton={false} onPress={() => { if (Date.now() - lastMarkerTapRef.current < 400) return; setSelected(null); }}>
         {groups.map((g) => (
-          <GroupMarker key={g.id} group={g} onPress={() => setSelected(g)} />
+          <GroupMarker
+            key={g.id}
+            group={g}
+            onPress={(e) => { e?.stopPropagation?.(); lastMarkerTapRef.current = Date.now(); setSelected(g); }}
+          />
         ))}
       </MapView>
 
@@ -165,7 +172,11 @@ export default function GroupMapScreen({ navigation }) {
           <TouchableOpacity style={styles.cardClose} onPress={() => setSelected(null)} hitSlop={8}>
             <Ionicons name="close" size={18} color={colors.faint} />
           </TouchableOpacity>
-          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}
+            activeOpacity={selected.isMember ? 0.7 : 1}
+            onPress={() => { if (selected.isMember) navigation.navigate('GroupFeed', { groupId: selected.id, groupName: selected.name }); }}
+          >
             {resolveUri(selected.imageUrl) ? (
               <Image source={{ uri: resolveUri(selected.imageUrl) }} style={styles.cardImg} />
             ) : (
@@ -181,7 +192,10 @@ export default function GroupMapScreen({ navigation }) {
                 <Text style={styles.cardMeta}>{selected.memberCount ?? 0} üye{selected.locationName ? ` · ${selected.locationName}` : ''}</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
+          {selected.description?.trim() ? (
+            <Text style={styles.cardDesc} numberOfLines={2}>{selected.description.trim()}</Text>
+          ) : null}
           <View style={{ marginTop: 12 }}>{renderAction(selected)}</View>
         </View>
       )}
@@ -203,6 +217,7 @@ const styles = StyleSheet.create({
   tag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9 },
   tagText: { fontFamily: font.bodyBold, fontSize: 11 },
   cardMeta: { fontSize: 12, color: colors.faint, fontFamily: font.body },
+  cardDesc: { fontSize: 13, color: colors.text, fontFamily: font.body, lineHeight: 19, marginTop: 10 },
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 13, ...shadow.cta },
   ctaMuted: { backgroundColor: colors.bg, ...{ shadowOpacity: 0 } },
   ctaText: { color: colors.white, fontFamily: font.bodyBold, fontSize: 15 },

@@ -8,12 +8,9 @@ const prisma = require('../lib/prisma');
 const router = express.Router();
 router.use(authMiddleware);
 
-const ROUTINE_POINTS = 3;
+const { toDateOnly } = require('../lib/dateUtils');
 
-function toDateOnly(d) {
-  const x = new Date(d);
-  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
-}
+const ROUTINE_POINTS = 3;
 
 function normalize(r) {
   return {
