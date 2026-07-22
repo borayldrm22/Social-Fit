@@ -1,7 +1,7 @@
 // LoginScreen.js — SocialFit redesign · Giriş Yap
 // Konum: src/screens/auth/LoginScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +22,8 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingTop: insets.top }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView style={styles.screen} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingTop: insets.top }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       {/* Splash artık replace ile geldiği için Login kök ekran — geri ok yalnızca gidilecek yer varsa görünür */}
       {navigation?.canGoBack?.() ? (
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={19} color="#3C4A42" /></TouchableOpacity>
@@ -72,6 +73,7 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.bottomText}>Hesabın yok mu? <Text style={styles.link}>Kayıt ol</Text></Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

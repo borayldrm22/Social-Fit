@@ -1,7 +1,7 @@
 // RegisterScreen.js — SocialFit redesign · Kayıt Ol
 // Konum: src/screens/auth/RegisterScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -41,7 +41,8 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingTop: insets.top }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView style={styles.screen} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingTop: insets.top }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TouchableOpacity style={styles.back} onPress={() => navigation?.goBack?.()}><Ionicons name="arrow-back" size={19} color="#3C4A42" /></TouchableOpacity>
 
       <View style={{ paddingHorizontal: 24 }}>
@@ -99,6 +100,7 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.bottomText}>Zaten üye misin? <Text style={styles.link}>Giriş yap</Text></Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
