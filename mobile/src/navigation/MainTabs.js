@@ -160,6 +160,7 @@ function GroupsStack() {
       <Stack.Screen name="GroupDiscover" component={GroupDiscoverScreen} options={{ headerShown: false }} />
       <Stack.Screen name="GroupMap" component={GroupMapScreen} options={{ headerShown: false }} />
       <Stack.Screen name="GroupFeed" component={GroupFeedScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: 'Grupta Paylaş' }} />
       <Stack.Screen name="EditGroup" component={EditGroupScreen} options={{ title: 'Grubu Düzenle' }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profil' }} />
     </Stack.Navigator>
